@@ -1,0 +1,84 @@
+fid1 = fopen('/Users/jakew/Dropbox/_DATA/NPtest_211104/evp_2021-11-04_10-01-05_1/Record Node 106/experiment1/recording1/continuous/Neuropix-PXI-104.0/continuous.dat');
+fid2 = fopen('/Users/jakew/Dropbox/_DATA/NPtest_211104/evp_2021-11-04_10-01-05_1/Record Node 113/experiment1/recording1/continuous/NI-DAQmx-102.0/continuous.dat');
+
+datar = fread(fid1,'int16');
+auxda = fread(fid2,'int16');
+
+if mod(numel(auxda),8); error('data len not workable'); end
+
+datar_len = numel(datar)/384; clear datar_len
+auxda_len = numel(auxda)/8; clear auxda_len
+
+datar = fread(fid1,[384, datar_len],'int16'); clear datar_len
+auxda = fread(fid2,[8, auxda_len],'int16'); clear auxda_len
+
+photo = auxda(1,1:30:end);
+times = auxda(8,1:30:end);
+
+flash = photo<0;
+flash(1:800) = 0;
+for i = 800 : numel(flash); flash(i) = sum(flash(i-799:i)); end
+flash = flash == 1;
+flash = find(flash);
+flash = flash(diff(flash)>799);
+
+data_evp = filter_and_ds(datar, 30000, [1 55], 4);
+[data_evp_mat, data_evp_mat_blc] = ...
+    gen_filtered_mat(data_evp, flash);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function [dout, pout] = filter_and_ds( data_in, fs, band, filt_order)
+
+hpc = band(2);
+lpc1 = band(1);
+lpc2 = band(1)/2;
+
+hWn = lpc1 / (fs/2);
+[ bwb, bwa ] = butter( filt_order, hWn, 'high' );
+
+hphga = filtfilt( bwb, bwa, data_in' );
+
+lWn = hpc / (fs/2);
+[ bwb, bwa ] = butter( filt_order, lWn, 'low' );
+hphga = filtfilt( bwb, bwa, hphga );
+
+hphga_d = [];
+if data_fs > 1000
+    for i = 1 : size(hphga, 2)
+        hphga_d = cat(2,hphga_d, hphga(1:30:end,i));
+    end
+else
+    hphga_d = hphga;
+end
+data.data = single(hphga_d');
+
+hphga = abs( hphga );
+
+lWn = lpc2 / (fs/2);
+[ bwb, bwa ] = butter( filt_order, lWn, 'low' );
+hphga = filtfilt( bwb, bwa, hphga );
+
+hphga_d = [];
+if data_fs > 1500
+    for i = 1 : size(hphga, 2)
+        hphga_d = cat(2,hphga_d, hphga(1:30:end,i));
+    end
+else
+    hphga_d = hphga;
+end
+
+dout = data.data;
+pout = hphga_d;
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function [data_out_mat, data_out_mat_blc] = gen_filtered_mat(data_in, trig)
+data_out_mat = nan(384,500,numel(trig));
+for i = 1:numel(trig)
+    data_out_mat(:,:,i) = data_in(:,trig(i)-99:trig(i)+400);
+end
+data_out_mat_blc = data_out_mat-repmat(mean(data_out_mat(:,1:100,:),2), 1, 500, 1);
+end

@@ -1,0 +1,48 @@
+function data_out = bandpassfilter( data_in, fs, band, varargin )
+
+% along first dim
+
+filt_order = 4;
+filt_type = 'butter';
+
+varStrInd = find(cellfun(@ischar,varargin));
+for iv = 1:length(varStrInd)
+    switch varargin{varStrInd(iv)}
+        case {'-o', 'filter_order'}
+            filt_order = varargin{varStrInd(iv)+1};
+        case {'-t', 'filter_type'}
+            filt_order = varargin{varStrInd(iv)+1};
+    end
+end
+
+data_out = nan(size(data_in));
+
+hWn = band(1) / (fs/2;
+
+if strcmp('butter', filt_type)
+    [ bwb, bwa ] = butter( filt_order, hWn, 'high' );
+end
+
+hphga = filtfilt( bwb, bwa, data_in );
+
+lWn = lpc / fs/2;
+[ bwb, bwa ] = butter( filt_order, lWn, 'low' );
+hphga = filtfilt( bwb, bwa, hphga );
+
+hphga_d = [];
+if data_fs > 1500
+    for i = 1 : size(hphga, 2)
+        hphga_d = cat(2,hphga_d, decimate2( hphga(:,i), deci_val ));
+    end
+    new_fs = data_fs / deci_val;
+else
+    hphga_d = hphga;
+    new_fs = data_fs;
+end
+
+data.data(1:size(hphga_d,2),:,i) = single(hphga_d');
+if i == 1
+    data.(band_name_fs) = new_fs;
+end
+
+end
