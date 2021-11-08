@@ -11,9 +11,10 @@ if ndims( data_in ) == 2
 else
     data_out = convList(l,k);
 end
-end
 
 data_out = data_out .* fs;
+
+end
 
 %--------------------------------------------------
 

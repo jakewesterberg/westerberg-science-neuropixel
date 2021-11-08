@@ -20,10 +20,10 @@ np_dir = 'F:\data_transfer\';
 rec_dir = []; % leave blank
 
 % or... 2) the recording data header info
-rec_task = 'dot'; %'evp' 'rom', 'dot';
+rec_task = 'rom'; %'evp' 'rom';
 rec_subj = 'B52';
 rec_date = '2021-11-06';
-rec_titt = 3;
+rec_titt = 1;
 rec_expt = 1;
 rec_numb = 1;
 rec_bank = 'B'; % uncessary currently
