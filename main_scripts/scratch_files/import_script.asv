@@ -20,10 +20,10 @@ np_dir = 'F:\data_transfer\';
 rec_dir = []; % leave blank
 
 % or... 2) the recording data header info
-rec_task = 'rom'; %'evp' 'rom';
+rec_task = 'dot'; %'evp' 'rom', 'dot';
 rec_subj = 'B52';
 rec_date = '2021-11-06';
-rec_titt = 1;
+rec_titt = 3;
 rec_expt = 1;
 rec_numb = 1;
 rec_bank = 'B'; % uncessary currently
@@ -241,17 +241,24 @@ tic
 AD = resample(AD', 1, 30); AD = AD';
 
 % find photo triggers on and off
-TRIG_on_ind = AD(AD_map.TRIG, :) < ...
-    (mean(AD(AD_map.TRIG, :)) - 3 * std(AD(AD_map.TRIG, :)));
-[~, TRIG_on_ind] = binsum(TRIG_on_ind, 16, 'pre');
-TRIG_off_ind = AD(AD_map.TRIG, :) < ...
-    (mean(AD(AD_map.TRIG, :)) - 3 * std(AD(AD_map.TRIG, :)));
-[~, TRIG_off_ind] = binsum(TRIG_off_ind, 16, 'post');
+%TRIG_on_ind = AD(AD_map.TRIG, :) < ...
+%    (mean(AD(AD_map.TRIG, :)) - 3 * std(AD(AD_map.TRIG, :)));
+TRIG_on_ind = AD(AD_map.TRIG, :) < 0;
+[~, TRIG_on_ind] = binsum(TRIG_on_ind, 32, 'pre');
+%TRIG_off_ind = AD(AD_map.TRIG, :) < ...
+%    (mean(AD(AD_map.TRIG, :)) - 3 * std(AD(AD_map.TRIG, :)));
+TRIG_off_ind = AD(AD_map.TRIG, :) < 0;
+[~, TRIG_off_ind] = binsum(TRIG_off_ind, 32, 'post');
 
 % correction to V1 ML tasks as they do not save stim info from incorrect
 % trials
 if strcmp(rec_task, 'rom')
     bad_ind = TRIG_off_ind - TRIG_on_ind < 250;
+    TRIG_on_ind = TRIG_on_ind(~bad_ind);
+    TRIG_off_ind = TRIG_off_ind(~bad_ind);
+end
+if strcmp(rec_task, 'dot')
+    bad_ind = TRIG_off_ind - TRIG_on_ind < 50;
     TRIG_on_ind = TRIG_on_ind(~bad_ind);
     TRIG_off_ind = TRIG_off_ind(~bad_ind);
 end

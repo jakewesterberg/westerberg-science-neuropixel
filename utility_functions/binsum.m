@@ -13,7 +13,7 @@ if strcmp('post', direc)
     for i = 1:numel(data_in)-bin
         logi_out(i) = sum(data_in(i:i+bin-1));
     end
-    logi_out = ([logi_out zeros(1, 16)] == 1) & data_in;
+    logi_out = ([logi_out zeros(1, bin)] == 1) & data_in;
 end
 
 ind_out = find(logi_out);

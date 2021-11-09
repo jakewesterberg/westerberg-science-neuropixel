@@ -42,6 +42,9 @@ fields = {...
 
 if n < datenum('01/29/2016','mm/dd/yyyy');
     formatSpec = '%u\t%f\t%f\t%f\t%f\t%f\t%f\r\n';
+elseif n > datenum('11/05/2021','mm/dd/yyyy');
+    formatSpec = '%u\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\r\n';
+    fields = horzcat(fields,'contrast','fix_x', 'fix_y', 'timestamp');
 else
     formatSpec = '%u\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\r\n';
     fields = horzcat(fields,'contrast','timestamp');
@@ -62,10 +65,8 @@ if length(fields) ~= size(dataArray,2)
     error('bad formatSpec or structure fields for %s',filename)
 end
 
-
 st = 1;
 en = length(dataArray{1});
-
 
 for f = 1:length(fields)
     if isnumeric(dataArray{f})
