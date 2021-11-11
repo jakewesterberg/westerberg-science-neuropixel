@@ -3,6 +3,9 @@
 %%% Vanderbilt University
 %%% Created 21-11-07
 
+% NOTE: will make a function version of this once the base code is fully
+% fleshed out...
+
 % start fresh
 clear; clc;
 fclose all;

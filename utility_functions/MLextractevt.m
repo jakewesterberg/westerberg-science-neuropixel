@@ -1,9 +1,10 @@
-function STIM = MLextractevt(paradigm, gratingfile, DI)
+function STIM = MLextractevt(paradigm, gratingfile, DI, DT)
 
 if ischar(DI)
     try
         bhv2_path = find_file(DI, '.bhv2', false);
         if numel(bhv2_path) > 1; error('MORE THAN ONE GRATING RECORD!'); end
+        warning('COULD NOT FIND DI TO OPEN-EPHYS - RESORTING TO BHV...')
         bhv2_path = bhv2_path{1};
         bhv2 = mlread(bhv2_path);
         EventCodes = [];
@@ -12,15 +13,22 @@ if ischar(DI)
             EventCodes = cat(1, EventCodes, bhv2(i).BehavioralCodes.CodeNumbers);
             EventSamples = cat(1, EventSamples, bhv2(i).BehavioralCodes.CodeTimes);
         end
-        [STIM.pEvC, STIM.pEvT] = parsEventCodesML(EventCodes,EventSamples);
     catch
         warning('COULD NOT FIND BHV - RESORTING TO NEV...')
         NEV = openNEV();
         EventCodes = NEV.Data.SerialDigitalIO.UnparsedData - 128;
         EventSamples = double(NEV.Data.SerialDigitalIO.TimeStamp);
-        [STIM.pEvC, STIM.pEvT] = parsEventCodesML(EventCodes,EventSamples);
     end
+elseif nargin == 4
+
+    disp('Pulling event codes from digital inputs to open-ephys.')
+    EventCodes = DI - 128; % strobe correction - loses 8th bit
+    EventSamples = DT(EventCodes > 0);
+    EventCodes = EventCodes(EventCodes > 0);
+
 end
+
+[STIM.pEvC, STIM.pEvT] = parsEventCodesML(EventCodes,EventSamples);
 
 if strcmp(paradigm, 'dotmapping')
 
