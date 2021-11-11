@@ -1,0 +1,94 @@
+<html>
+<head>
+	<meta charset="UTF-8"> 
+	<title>NIMH ML: Docs</title>
+	<link rel="stylesheet" href="css/screen.css">
+	<link rel="stylesheet" href="css/mobile.css">
+	<link rel="stylesheet" href="css/print.css">
+	<script src="css/menu.js"></script>
+</head>
+<body onload="scrollToHash()" onresize="menuResizeFunction()">
+
+<nav id="top-menu">
+	<div class="page-margin">
+		<ul class="title-area">
+			<li><a href="index.html" class="site-title">NIMH MonkeyLogic</a></li>
+			<div onclick="menuFunction()" class="menu-icon"><div class="menu-icon-bar"></div><div class="menu-icon-bar"></div><div class="menu-icon-bar"></div></div>
+		</ul>
+		<ul class="menu-area">
+			<li><a href="about.html">About</a></li>
+			<li><a href="download.html">Download</a></li>
+			<li><a href="docs.html">Docs</a></li>
+			<li><a href="https://monkeylogic.nimh.nih.gov/board/">Support</a></li>
+		</ul>
+	</div>
+</nav>
+
+<nav2 id="nav-bar">
+	<div class="page-margin">
+		<div class="link-area">
+			<b><<</b> <a href="docs_NIMultifunctionIODevice.html">Hardware, NI Board</a> &nbsp;&nbsp;&nbsp;
+			<b>>></b> <a href="docs_TouchscreenSetup.html">Hardware, Touchscreen</a> &nbsp;&nbsp;&nbsp;
+			<b>^</b> <a href="javascript:scroll(0,0);">Top</a>
+		</div>
+	</div>
+</nav2>
+
+<section>
+	<div class="one-column">
+		<div>
+			<h1>Calibrating Eye/Joystick Signals</h1>
+			<p>Calibration is a process of converting and aligning voltages of input signals to coordinates of visual object space. The first step is to set the physical dimensions of the visual space correctly. Measure <u>the diagonal size of the subject monitor</u> and <u>the distance between the monitor and the subject</u> and put them in the main menu as shown below. NIMH ML then provides you a conversion factor in pixels per degree of visual angle (91.717 in the figure shown below). Use this number to convert the size of visual objects to visual angles. For example, a 320 x 240 movie is [320 240] / 91.717 = [3.4890 2.6167] degrees in visual angles.</p>
+			
+			<p><img src="images\docs_eyejoy_pixels_per_degree.png"></p>
+			
+			<p>NIMH MonkeyLogic currently provides options to use <b>Raw Signal</b> and two calibration methods, <b>Origin & Gain</b> and <b>2-D Spatial Transformation</b>. The <b>Origin & Gain</b> requires only 2 fixation points and is much easier to use with untrained subjects. The <b>2-D Spatial Transformation</b> requires sampling voltages for at least 4 fixation points but can do more complex mapping by a projective transform. Both methods include a tool to move and present the fixation point with the mouse. By clicking on yellow squares on the control screen, a fixation point will be displayed in the corresponding location on the subject screen.</p>
+
+			<p>There are a few shortcut keys for calibration. These shortcuts work during the task as well.<p>
+			<ul>
+				<li>[C] key: Brings the current eye position to the center of the screen.</li>
+				<li>[U] key: Cancels the previous 'C' key. Undo can be done multiple times.</li>
+				<li>[R] key: Delivers a manual reward.</li>
+				<li>[-] key: Decreases the reward pulse length by 10 ms.</li>
+				<li>[+] key: Increases the reward pulse length by 10 ms.</li>
+			</ul>
+			
+			<h2 id="RawSignal" class="line-spacing2">i. Raw Signal (Pre-calibrated)</h2>
+			<p>Choose this option when the signals are calibrated already, or to get unaltered input.  One volt in the calibrated signals should correspond to one degree of displacement.  If the signal is calibrated but the conversion ratio is not one to one, it is possible to do further adjustment with the Origin & Gain method.</p>
+
+			<h2 id="OriginGain" class="line-spacing2">ii. Origin & Gain</h2>
+			<p><img src="images\docs_eyejoy_origin_and_gain.png"></p>
+			<ol type="1">
+				<li>To control the user interface on the window, unlock it first by clicking the 'Unlock' button.
+				<li>Click the "Show Center" button or the fixation point (yellow square) at the center. It will show a fixation point at the center of the subject screen. Then wait until the subject look at it.</li>
+				<li>Click the "Set Origin" button while the subject is looking at the center. Alternatively, you can press the space bar (or 'C' key). It will register the current voltage reading for the center.</li>
+				<li>Click one of the fixation points on the periphery. Increase (or decrease) X & Y gains if the subject's saccade undershoots (or overshoots).</li>
+				<li>Lock the UI and click the "Save" button. The "Cancel" button reverts any change that has been made.</li>
+			</ol>
+			
+			<h2 id="SpatialTransformation" class="line-spacing2">iii. 2-D Spatial Transformation</h2>
+			<p><img src="images\docs_eyejoy_2d_spatial_transformation.png"></p>
+			<ol type="1">
+				<li>Only selected fixation points can be used for this calibration. These fixation points are numbered. To select/unselect fixation points, use the right mouse button. Changing the intervals of fixation points may leave some numbers off of fixation points. Those numbers can only be unselected.</li>
+				<li>Once all fixation points have been selected, they can be turned on/off individually with the keyboard (N key & P key) or with mouse left-clicks.</li>
+				<li>Hit the space key while the subject is looking at the displayed fixation point. The voltage reading at that moment will be registered for the displayed fixation point and its number will turn from red to blue.</li>
+				<li>There is a choice for how to reward fixation. The default option is to deliver reward at the time of the space key press and move to the next fixation point.</li>
+				<li>Repeat 2) and 3) for the entire selected fixation points a couple of times. Then click the "Save" button. Eye traces won't appear until there are at least 4 fixation points calibrated.</li>
+			</ol>
+		</div>
+	</div>
+</section>
+
+<div id="footerNIMH">
+	<p>The National Institute of Mental Health (NIMH) is part of the National Institutes of Health (NIH), a component of the U.S. Department of Health and Human Services.</p>
+	<ul class="logoLinks">
+		<li><a href="https://www.nih.gov/icd/od/foia/">FOIA</a></li>
+		<li><a href="https://www.nimh.nih.gov/"><img src="images/nimh_logo.png"></a></li>
+		<li><a href="https://www.nih.gov/"><img src="images/nih_logo.png"></a></li>
+		<li><a href="https://www.hhs.gov/"><img src="images/hhs_logo.png"></a></li>
+		<li><a href="https://www.usa.gov/"><img src="images/usagov_logo.png"></a></li>
+	</ul>
+</div>
+
+</body>
+</html>

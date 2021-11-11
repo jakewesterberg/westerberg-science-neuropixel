@@ -1,0 +1,205 @@
+<html>
+<head>
+	<meta charset="UTF-8"> 
+	<title>NIMH ML: Docs</title>
+	<link rel="stylesheet" href="css/screen.css">
+	<link rel="stylesheet" href="css/mobile.css">
+	<link rel="stylesheet" href="css/print.css">
+	<script src="css/menu.js"></script>
+</head>
+<body onload="scrollToHash()" onresize="menuResizeFunction()" onscroll="fixNavbarOnScroll()">
+
+<style>
+nav {
+	position: absolute;
+}
+</style>
+<nav id="top-menu">
+	<div class="page-margin">
+		<ul class="title-area">
+			<li><a href="index.html" class="site-title">NIMH MonkeyLogic</a></li>
+			<div onclick="menuFunction()" class="menu-icon"><div class="menu-icon-bar"></div><div class="menu-icon-bar"></div><div class="menu-icon-bar"></div></div>
+		</ul>
+		<ul class="menu-area">
+			<li><a href="about.html">About</a></li>
+			<li><a href="download.html">Download</a></li>
+			<li><a href="docs.html">Docs</a></li>
+			<li><a href="https://monkeylogic.nimh.nih.gov/board/">Support</a></li>
+		</ul>
+	</div>
+</nav>
+
+<nav2 id="nav-bar">
+	<div class="page-margin">
+		<div class="link-area">
+			<b><<</b> <a href="docs_HDF5Implementation.html">Appx., HDF5 Format</a> &nbsp;&nbsp;&nbsp;
+			<b>>></b> <a href="docs_MonkeyLogicGraphicsLibrary.html">Appx., MonkeyLogic Graphics Library</a> &nbsp;&nbsp;&nbsp;
+			<b>^</b> <a href="javascript:scroll(0,0);">Top</a>
+		</div>
+	</div>
+</nav2>
+
+<section>
+	<div class="one-column">
+		<div>
+			<h1>NIMH DAQ Toolbox</h1>
+			
+			<h2 class="line-spacing1">I. Introduction</h2>
+			<p>NIMH DAQ Toolbox (NIMH DAQ) is a pacakge of MATLAB scripts and mex binaries that enable MATLAB to acquire digital samples or generate analog/TTL output through data acquisition hardware.&nbsp; There is MATLAB's own Data Acquisition Toolbox (MATLAB DAQ) for this purpose already, but MATLAB DAQ does not support its legacy interface on 64-bit MATLAB nor in the releases later than R2015b.&nbsp; NIMH DAQ is developed to extend the legacy interface to 64-bit MATLAB and continue to support it in the latest version of MATLAB so that users can keep running mission-critical codes written with the legacy DAQ interface.</p>
+			
+			<p>NIMH DAQ includes some improvements in DAQ functions to support near-realtime behavior monitoring and stimulation that are required in neuroscience research.&nbsp; For example, it does not require two DAQ boards to compensate long sample update intervals in MATLAB DAQ.&nbsp; For the details of the improvements, see <a href="extra/legacy/daqtoolbox/180521_NIMH_DAQ_Toolbox.pdf">this PDF document</a> and <a href="https://www.ncbi.nlm.nih.gov/pubmed/31071345">Hwang et al. (2019)</a>.
+
+			<h2 class="line-spacing1">II. Supported devices</h2>
+			<ul>
+				<li>National Instruments multifunction I/O device</li>
+				<li>Sound card</li>
+				<li>Parallel port</li>
+				<li>Touchscreen (MonkeyLogic Graphics Library required)</li>
+				<li>USB joystick</li>
+				<li>TCP/IP eye tracker (EyeLink, ViewPoint and ISCAN)</li>
+				<li>Keyboard</li>
+				<li>Mouse</li>
+				<li>Webcam</li>
+				<li>Serial port</li>
+			</ul>
+			<p>For those devices that do not have a sample clock (NI digital input, parallel port, touchscreen, USB joystick, TCP/IP eye tracker, keyboard, mouse), NIMH DAQ performs millisecond-resolution data acquisition based on a software timer.</p>
+
+			<h2 class="line-spacing1">III. Installation</h2>
+			<p>NIMH DAQ is included in NIMH ML and not distributed as a separate package. Copy the <b>daqtoolbox</b> directory from the NIMH ML package and add it to the MATLAB path.&nbsp; Install additional libraries as explained in <a href="docs_GettingStarted.html#AdditionalLibraries">this manual page</a>.
+
+			<h2 class="line-spacing1">IV. Usage</h2>
+			<p>NIMH DAQ is made compatible with the legacy interface of MATLAB DAQ Toolbox, although not all the functions are implemented.&nbsp; Basic commands are shown below. There are more example scripts in the <b>daqtoolbox\examples</b> directory.</p>
+			<ul>
+				<li><a href="#HardwareDiscovery">Hardware Discovery</a></li>
+				<li><a href="#AnalogInput">Analog Input</a></li>
+				<li><a href="#AnalogOutput">Analog Output</a></li>
+				<li><a href="#DigitalIO">Digital Input/Output</a></li>
+			</ul>
+
+			<ul>
+				<h2 id="HardwareDiscovery" class="line-spacing2">Hardware Discovery</h2>
+				<ul>
+					<h3>1. Find all installed adapters</h3>
+					<p class="code">
+						>> devices = daqhwinfo<br>
+						>> devices.InstalledAdaptors<br><br>
+						ans =<br><br>
+						<tab2>2×1 cell array<br><br>
+						<tab4>{'nidaq'   }<br>
+						<tab4>{'winsound'}
+					</p>
+					<h3>2. Information about an installed adapter</h3>
+					<p class="code">
+						>> ni = daqhwinfo(<mg>'nidaq'</mg>)<br><br>
+						ans =<br><br>
+						<tab2>struct with fields:<br><br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AdaptorName: 'nidaq'<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BoardNames: {'PCIe-6323'}<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;InstalledBoardIds: {'Dev1'}<br>
+						<tab4>ObjectConstructorName: {1×3 cell}
+					</p>
+					<h3>3. Information about a particular device</h3>
+					<p class="code">
+						>> ai = analoginput(<mg>'nidaq'</mg>,<mg>'Dev1'</mg>)<br>
+						>> daqhwinfo(<mg>'ai'</mg>)<br><br>
+						ans =<br><br>
+						<tab2>struct with fields:<br><br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AdaptorName: 'nidaq'<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Bits: 16<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Coupling: {'DC'}<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DeviceName: 'PCIe-6323'<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DifferentialIDs: [0 1 2 3 4 5 6 7 16 17 18 19 20 21 22 23]<br>
+						<tab4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+					</p>
+				</ul>
+				
+				<h2 id="AnalogInput" class="line-spacing2">Analog Input</h2>
+				<ul>
+					<h3>1. Create an analog input object</h3>
+					<p class="code">
+						>> ai = analoginput(<mg>'nidaq'</mg>,<mg>'Dev1'</mg>);<br>
+						>> addchannel(ai,0:1);				
+					</p>
+					<h3>2. Acquire a single sample</h3>
+					<p class="code">
+						>> getsample(ai)
+					</p>
+					<h3>3. Acquire continuous samples</h3>
+					<p class="code">
+						>> ai.SampleRate = 1000;<br>
+						>> ai.SamplesPerTrigger = 1000;&nbsp;&nbsp; <gr>% Or Inf, which requires calling stop(ai) to stop acquisition</gr><br>
+						>> start(ai);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Acquisition wiil stop after 1 s automatically</gr><br>
+						>> data = peekdata(ai);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Preview data without actually retrieving</gr><br>
+						>> data = getdata(ai);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Retrieve data</gr>
+					</p>
+					<h3>4. Triggered sampling</h3>
+					<p class="code">
+						>> ai.TriggerType = <mg>'manual'</mg>;<br>
+						>> start(ai);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Hardware is ready, but acquisition is not started yet</gr><br>
+						>> trigger(ai);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Triggered acquisition begins faster</gr><br>
+					</p>
+				</ul>
+				
+				<h2 id="AnalogOutput" class="line-spacing2">Analog Output</h2>
+				<ul>
+					<h3>1. Create an analog output object</h3>
+					<p class="code">
+						>> ao = analogoutput(<mg>'nidaq'</mg>,<mg>'Dev1'</mg>);<br>
+						>> addchannel(ao,0);				
+					</p>
+					<h3>2. Send out a single sample</h3>
+					<p class="code">
+						>> putsample(ao,5)
+					</p>
+					<h3>3. Generate a waveform</h3>
+					<p class="code">
+						>> ao.SampleRate = 1000;<br>
+						>> putdata(ao,sind(linspace(0,360,1000))');&nbsp;&nbsp; <gr>% Load a waveform</gr><br>
+						>> start(ao);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Start generation</gr><br>
+					</p>
+					<h3>4. Triggered generation</h3>
+					<p class="code">
+						>> ao.TriggerType = <mg>'manual'</mg>;<br>
+						>> putdata(ao,sind(linspace(0,360,1000))');<br>
+						>> start(ao);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Hardware is ready, but generation is not started yet</gr><br>
+						>> trigger(ao);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Triggered generation begins faster</gr><br>
+					</p>
+				</ul>
+
+				<h2 id="DigitalIO" class="line-spacing2">Digital Input/Output</h2>
+				<ul>
+					<h3>1. Create a digital I/O object</h3>
+					<p class="code">
+						>> di = digitalio(<mg>'nidaq'</mg>,<mg>'Dev1'</mg>);<br>
+						>> addline(di,0:3,0,<mg>'in'</mg>);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Add Line 0-3 of Port 0 for input</gr><br><br>
+						>> do = digitalio(<mg>'nidaq'</mg>,<mg>'Dev1'</mg>);<br>
+						>> addline(do,4:7,0,<mg>'out'</mg>);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% Add Line 4-7 of Port 0 for output</gr>
+					</p>
+					<h3>2. Read a value</h3>
+					<p class="code">
+						>> getvalue(di)
+					</p>
+					<h3>2. Write a value</h3>
+					<p class="code">
+						>> putvalue(do,12)<br>
+						>> putvalue(do,[0 0 1 1])&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <gr>% The same operation as the above line</gr><br>
+					</p>
+				</ul>
+			</ul>
+		</div>
+	</div>
+</section>
+
+<div id="footerNIMH">
+	<p>The National Institute of Mental Health (NIMH) is part of the National Institutes of Health (NIH), a component of the U.S. Department of Health and Human Services.</p>
+	<ul class="logoLinks">
+		<li><a href="https://www.nih.gov/icd/od/foia/">FOIA</a></li>
+		<li><a href="https://www.nimh.nih.gov/"><img src="images/nimh_logo.png"></a></li>
+		<li><a href="https://www.nih.gov/"><img src="images/nih_logo.png"></a></li>
+		<li><a href="https://www.hhs.gov/"><img src="images/hhs_logo.png"></a></li>
+		<li><a href="https://www.usa.gov/"><img src="images/usagov_logo.png"></a></li>
+	</ul>
+</div>
+
+</body>
+</html>

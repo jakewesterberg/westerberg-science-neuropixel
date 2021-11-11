@@ -1,0 +1,131 @@
+<html>
+<head>
+	<meta charset="UTF-8"> 
+	<title>NIMH ML: Docs</title>
+	<link rel="stylesheet" href="css/screen.css">
+	<link rel="stylesheet" href="css/mobile.css">
+	<link rel="stylesheet" href="css/print.css">
+	<script src="css/menu.js"></script>
+</head>
+<body onload="scrollToHash()" onresize="menuResizeFunction()">
+
+<nav id="top-menu">
+	<div class="page-margin">
+		<ul class="title-area">
+			<li><a href="index.html" class="site-title">NIMH MonkeyLogic</a></li>
+			<div onclick="menuFunction()" class="menu-icon"><div class="menu-icon-bar"></div><div class="menu-icon-bar"></div><div class="menu-icon-bar"></div></div>
+		</ul>
+		<ul class="menu-area">
+			<li><a href="about.html">About</a></li>
+			<li><a href="download.html">Download</a></li>
+			<li><a href="docs.html">Docs</a></li>
+			<li><a href="https://monkeylogic.nimh.nih.gov/board/">Support</a></li>
+		</ul>
+	</div>
+</nav>
+
+<nav2 id="nav-bar">
+	<div class="page-margin">
+		<div class="link-area">
+			<b><<</b> <a href="docs_MonkeyLogicGraphicsLibrary.html">Appx., MonkeyLogic Graphics Library</a> &nbsp;&nbsp;&nbsp;
+			<b>>></b> <a href="docs_BlackrockLEDdriver.html">Appx., Blackrock LED driver</a> &nbsp;&nbsp;&nbsp;
+			<b>^</b> <a href="javascript:scroll(0,0);">Top</a>
+		</div>
+	</div>
+</nav2>
+
+<section>
+	<div class="one-column">
+		<div>
+			<h1>Coordinate Conversion</h1>
+
+			<p>There are several coordinate systems used in NIMH ML for calibration and graphics.</p>
+			
+			<p>
+				<b>sig</b> is analog voltage or digital input (X & Y) fed from eye trackers or joysticks.<br>
+				<b>deg</b> is visual degrees measured from the center of the screen. NIMH ML mostly works on this coordinate system in timing scripts.<br>
+				<b>pix</b> is native pixel coordinates of Windows. The top-left corner is (0,0) and x & y increase as moving toward the bottom-right corner. This is the coordinate system that MGL uses.<br>
+				<b>norm</b> is normalized coordinates in which both x & y have a value between 0 and 1. It is useful when you design layouts independent of the screen size.
+			</p>
+			
+			<p><img src="images\docs_coordinate_systems.png"></p>
+
+			<p class="line-spacing2">The mlcalibrate class provides methods to manipulate the coordinate systems and convert xy coordinates from one system to another. There are 4 mlcalibrate objects that users can access in the timing script: <b>EyeCal</b>, <b>Eye2Cal</b>, <b>JoyCal</b> and <b>Joy2Cal</b>.</p>
+			
+			<p class="code">
+xy_deg = EyeCal.sig2deg(xy_sig, offset); &nbsp;<gr>% The offset should be [0 0].</gr><br>
+EyeCal.translate(xy_offset); &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gr>% Translate the system so that xy_offset becomes a new (0,0).</gr><br>
+EyeCal.rotate(theta); &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<gr>% Rotate the coordinates system by theta (in degrees).</gr><br>
+EyeCal.custom_calfunc(@function_handle); &nbsp;<gr>% For user manipulation of calibration.</gr><br>
+			</p>
+			
+			<p>The <b>sig2deg</b> method is device-dependent. It works only when the <a href="docs_CalibratingEyeJoy.html">calibration process</a> is complete. There are three methods that can affect how sig2deg works. The <b>translate</b> method updates the calibration matrix so that the given coordinates become a new origin of the system. The <b>rotate</b> method turns the axes on the origin by the given angle. With the <b>custom_calfunc</b> method, you can plug in a custom function to manipulate the calibration. For example, if you want to move the origin to [3 3], you can write a timing script as below.</p>
+			
+			<p class="code">
+new_origin = [3 3]; &nbsp;<gr>% in degrees</gr><br>
+JoyCal.custom_calfunc(@custom_joy);<br>
+...<br>
+...<br>
+...<br>
+<bl>function</bl> xy_deg = custom_joy(xy_deg) &nbsp;<gr>% note that input and output are both in degrees</gr><br>
+<tab4>n = size(xy_deg,1);<br>
+<tab4>xy_deg = xy_deg + repmat(new_origin, n, 1);<br>
+<bl>end</bl>
+			</p>
+			
+			<p>The difference between JoyCal.translate([3 3]) and the above code is that the former brings [3 3] to [0 0] and the latter moves [0 0] to [3 3].</p>
+			
+			<p class="line-spacing2">Additionally the following methods are available. Except sig2pix, all methods are device-independent. In other words, the results will be the same, no matter which object you use among EyeCal, Eye2Cal, JoyCal and Joy2Cal to call them.</p>
+
+			<p class="code">
+xy_pix = EyeCal.sig2pix(xy_sig, offset); &nbsp;<gr>% this is a conjugation of sig2deg and deg2pix</gr><br>
+xy_deg = EyeCal.pix2deg(xy_pix);<br>
+xy_pix = EyeCal.deg2pix(xy_deg);<br>
+xy_deg = EyeCal.subject2deg(xy); &nbsp;<gr>% get the degree coordinates of a point on the subject screen</gr><br>
+xy_pix = EyeCal.subject2pix(xy);<br>
+xy_deg = EyeCal.control2deg(xy); &nbsp;<gr>% get the degree coordinates of a point on the control screen</gr><br>
+xy_pix = EyeCal.control2pix(xy);<br>
+xy_deg = EyeCal.norm2deg(xy);<br>
+xy_pix = EyeCal.norm2pix(xy);<br>
+wh_deg = EyeCal.norm2size(wh); &nbsp;&nbsp;&nbsp;<gr>% convert the normalized size (width & height) to visual degrees</gr><br>
+			</p>
+			
+			<p class="line-spacing2">In the scene framework, you can access Tracker's mlcalibrate object inside the adapter like the following.</p>
+			
+			<p class="code">
+<bl>classdef</bl> YourAdapter < mladapter<br>
+<tab4><bl>properties</bl><br>
+<tab8>Position<br>
+<tab4><bl>end</bl><br>
+<tab4><bl>properties</bl> (SetAccess = protected)<br>
+<tab8>ScreenPosition<br>
+<tab4><bl>end</bl><br>
+<tab4><bl>methods</bl><br>
+<tab8><bl>function</bl> obj = YourAdapter(varargin)<br>
+<tab12>obj = obj@mladapter(varargin{:});<br>
+<tab8><bl>end</bl><br>
+<tab8><bl>function</bl> set.Position(obj,xy_deg)<br>
+<tab12>obj.Position = xy_deg;<br>
+<tab12><gr>% If the tracker of the adapter chain is EyeTracker, obj.Tracker.CalFun indicates EyeCal.</gr><br>
+<tab12>obj.ScreenPosition = obj.Tracker.CalFun.deg2pix(xy_deg);<br>
+<tab8><bl>end</bl><br>
+<tab4><bl>end</bl><br>
+<bl>end</bl>
+			</p>
+		</div>
+	</div>
+</section>
+
+<div id="footerNIMH">
+	<p>The National Institute of Mental Health (NIMH) is part of the National Institutes of Health (NIH), a component of the U.S. Department of Health and Human Services.</p>
+	<ul class="logoLinks">
+		<li><a href="https://www.nih.gov/icd/od/foia/">FOIA</a></li>
+		<li><a href="https://www.nimh.nih.gov/"><img src="images/nimh_logo.png"></a></li>
+		<li><a href="https://www.nih.gov/"><img src="images/nih_logo.png"></a></li>
+		<li><a href="https://www.hhs.gov/"><img src="images/hhs_logo.png"></a></li>
+		<li><a href="https://www.usa.gov/"><img src="images/usagov_logo.png"></a></li>
+	</ul>
+</div>
+
+</body>
+</html>

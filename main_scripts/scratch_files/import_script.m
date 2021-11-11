@@ -19,19 +19,24 @@ np_dir = 'F:\data_transfer\';
 % specify... 1) the exact dir
 rec_dir = []; % leave blank
 
-% or... 2) the recording data header info
-rec_task = 'dot'; %'evp' 'rom', 'dot';
-rec_subj = 'B52';
-rec_date = '2021-11-06';
-rec_titt = 3;
-rec_expt = 1;
-rec_numb = 1;
-rec_bank = 'B'; % uncessary currently
-rec_node = [106];
-adc_node = [119]; % leave empty if same as rec
+% specify task
+rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
 
-% evt code location?
-evt_form = 'nev'; % 'opep'
+% or... 2) the recording data header info
+rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
+rec_subj = []; % leave empty if use most recent. ex. 'B52';
+rec_date = []; % leave empty if use most recent. ex. '2021-11-09';
+rec_node = []; % leave empty if only one rec node
+adc_node = []; % leave empty if same as rec
+rec_nitt = []; % leave empty if one task file or want most recent file
+rec_expt = []; % leave empty - should always be one... 
+rec_nrec = []; % leave empty - should almost always be one...
+
+% if >1 probe, which probe
+rec_probe = 1;
+
+% evt code location? - add check for DI first then use ML bhv as backup
+evt_form = 'ML'; % 'DI'
 
 % which data?
 rec_AP = false;
@@ -68,6 +73,9 @@ disp('STEP 2 COMPLETE: basic info loaded.');
 %% FILL IN SOME BLANKS
 tic
 
+% Recording bank used on probe
+rec_bank = 'B'; % uncessary currently
+
 % rec ch vector
 chs = 1:384;
 chs_no = numel(chs);
@@ -81,18 +89,65 @@ AD_units = 'V';
 chs_sync = 385;
 
 % put together the base dir name
-if isempty(rec_dir); rec_dir = [np_dir rec_task '_' rec_subj '_' rec_date '_' num2str(rec_titt) '\']; end
+if isempty(rec_dir) 
+
+    if isempty(rec_subj) | isempty(rec_date)
+        np_dir_list = find_dir(np_dir, '(?<year>\d)');
+        t_ind_1 = strfind(np_dir_list, '_20'); t_ind_1 = [t_ind_1];
+        for i = 1 : numel(np_dir_list)
+            np_dates(i) = datenum(np_dir_list{i}(t_ind_1{i}+1:t_ind_1{i}+11));
+        end
+        [t_ind_2, t_ind_3] = max(np_dates);
+
+        if isempty(rec_date)
+            rec_date = datestr(np_dates(t_ind_3), 'yyyy-mm-dd');
+        end
+
+        if isempty(rec_subj)
+            rec_subj = np_dir_list{t_ind_3}(t_ind_1{t_ind_3}-3:t_ind_1{t_ind_3}-1);
+        end
+
+    end
+
+    rec_dir = find_dir(np_dir, [rec_task '_' rec_subj '_' rec_date]);
+
+end
+
+if isempty(rec_nitt) & numel(rec_dir) > 1
+    warning('MORE THAN ONE RUN OF THE TASK FOUND. USING LAST RUN.');
+    rec_dir = rec_dir{numel(rec_dir)};
+else
+
+    %%%%%% NOT WORKING ATM %%%%%%%%%%%%%
+    %rec_dir = cellfun(@isequal, str2double(rec_dir(end-1)), repmat({rec_nitt}, size(rec_dir)));
+
+end
+
 
 % put together the relevant node dirs
-rec_node_dir = [rec_dir 'Record Node ' num2str(rec_node) ...
-    '\experiment' num2str(rec_expt) '\recording' num2str(rec_numb) '\'];
-if isempty(adc_node)
-    adc_node_dir = [rec_dir 'Record Node ' num2str(rec_node) ...
-        '\experiment' num2str(rec_expt) '\recording' num2str(rec_numb) '\'];
+if isempty(rec_node)
+    node_dir = find_dir([rec_dir '\'], 'Record Node');
+    if numel(node_dir) > 1; warning('MORE THAN 1 NODE FOUND. USING FIRST NODE FOUND'); end
+    node_dir = node_dir{1};
 else
-    adc_node_dir = [rec_dir 'Record Node ' num2str(adc_node) ...
-        '\experiment' num2str(rec_expt) '\recording' num2str(rec_numb) '\'];
 end
+
+if isempty(rec_expt)
+    rec_node_dir = find_dir([node_dir '\'], 'experiment');
+    if numel(rec_node_dir) > 1; warning('MORE THAN 1 EXP FOUND. USING LAST EXP FOUND'); end
+    rec_node_dir = rec_node_dir{numel(rec_node_dir)};
+else
+end
+
+if isempty(rec_nrec)
+    rec_node_dir = find_dir([rec_node_dir '\'], 'recording');
+    if numel(rec_node_dir) > 1; warning('MORE THAN 1 RECORDING FOUND. USING LAST RECORDING FOUND'); end
+    rec_node_dir = [rec_node_dir{numel(rec_node_dir)} '\'];
+else
+end
+
+if isempty(adc_node); adc_node_dir = rec_node_dir;
+else; adc_node_dir = [rec_dir 'Record Node ' num2str(rec_node)  '\']; end
 
 toc
 disp('STEP 3 COMPLETE: inferred some information.');
@@ -107,7 +162,9 @@ adc_inff = [adc_node_dir 'structure.oebin'];
 adc_info = fileread(adc_inff);
 
 % define where the AD data is
-AD_file = [adc_node_dir 'continuous\NI-DAQmx-118.0\continuous.dat'];
+daq_dir = find_dir([adc_node_dir 'continuous\'], 'NI-DAQmx');
+if numel(daq_dir) > 1; warning('MORE THAN 1 DAQ DEVICE FOUND. USING DAQ NO. 1'); end
+AD_file = [daq_dir{1} '\continuous.dat'];
 
 % open the AD file
 AD_fid = fopen(AD_file, 'r');
@@ -132,10 +189,19 @@ clear AP_fid
 % extract bitvolts and units for AP
 AD_btvc = extract_btvc(adc_info, 'AI1');
 
-if rec_AP
+% find imex devices
+imec_dir = find_dir([rec_node_dir 'continuous\'], 'Neuropix-PXI');
 
-    % define where the AP data is
-    AP_file = [rec_node_dir 'continuous\Neuropix-PXI-104.0\continuous.dat'];
+% determine number of neuropixels probes
+np_no = numel(imec_dir)/2;
+
+% define where the AP data is
+AP_file = [imec_dir{rec_probe*2-1} '\continuous.dat'];
+
+% define where the LF data is
+LF_file = [imec_dir{rec_probe*2} '\continuous.dat'];
+
+if rec_AP
 
     % open the AP file
     AP_fid = fopen(AP_file, 'r');
@@ -156,8 +222,7 @@ if rec_AP
     AP = AP(1:384, :);
 
     % close file
-    fclose all;
-    clear AP_fid
+    fclose all; clear AP_fid
 
     % extract bitvolts and units for AP
     AP_btvc = extract_btvc(rec_info, 'AP1');
@@ -172,9 +237,6 @@ if rec_AP
 end
 
 if rec_LF
-
-    % define where the LF data is
-    LF_file = [rec_node_dir 'continuous\Neuropix-PXI-104.1\continuous.dat'];
 
     % open the LF file
     LF_fid = fopen(LF_file, 'r');
@@ -195,8 +257,7 @@ if rec_LF
     LF = LF(1:384, :);
 
     % close file
-    fclose all;
-    clear LF_fid
+    fclose all; clear LF_fid
 
     % extract bitvolts and units for LF
     LF_btvc = extract_btvc(rec_info, 'LFP1');
@@ -216,20 +277,33 @@ disp('STEP 4 COMPLETE: data loaded.');
 %% EVENT CODES
 tic
 
-if strcmp(evt_form, 'nev')
+if strcmp(evt_form, 'ML')
 
-    if strcmp(rec_task, 'rom')
-        [t_file, t_path] = uigetfile;
-        STIM = BRextractevt('rfori', [t_path t_file]);
+    if numel(find_file(rec_dir, '.g')) 
+        grating_path = find_file(rec_dir, '.g', false);
+        if numel(grating_path) > 1; error('MORE THAN ONE GRATING RECORD!'); end
+        grating_path = grating_path{1};
+    else
+        [t_file, t_path] = uigetfile; 
+        grating_path = [t_path t_file];
+
     end
 
-    if strcmp(rec_task, 'dot')
-        [t_file, t_path] = uigetfile;
-        STIM = BRextractevt('dotmapping', [t_path t_file]);
-    end
+    t_ind_1 = strfind(grating_path, '.g');
+    t_ind_2 = strfind(grating_path, '_');
+    t_ind_3 = find(t_ind_2 < t_ind_1, 1, 'last');
+    t_ind_4 = t_ind_2(t_ind_3);
+    grating_task = grating_path(t_ind_4+1:t_ind_1-4);
+
+    STIM = MLextractevt(grating_task, grating_path, rec_dir);
+
+elseif strcmp(evt_form, 'DI')
+
+    %%%%% ADD READING OF EMBEDDED DIGITAL INPUTS FOR EVENT CODES %%%%%%%
 
 end
 
+clear -regexp ^t_
 
 toc
 disp('STEP 5 COMPLETE: events loaded.');
@@ -238,6 +312,7 @@ disp('STEP 5 COMPLETE: events loaded.');
 tic
 
 % downsample adc data
+%%%%%%%% MAKE ADJ TO FIND FS AUTO AND BRING DOWN TO 1K %%%%%%%%%%%
 AD = resample(AD', 1, 30); AD = AD';
 
 % find photo triggers on and off
@@ -252,12 +327,12 @@ TRIG_off_ind = AD(AD_map.TRIG, :) < 0;
 
 % correction to V1 ML tasks as they do not save stim info from incorrect
 % trials
-if strcmp(rec_task, 'rom')
+if strcmp(rec_task, 'ROM')
     bad_ind = TRIG_off_ind - TRIG_on_ind < 250;
     TRIG_on_ind = TRIG_on_ind(~bad_ind);
     TRIG_off_ind = TRIG_off_ind(~bad_ind);
 end
-if strcmp(rec_task, 'dot')
+if strcmp(rec_task, 'DOT')
     bad_ind = TRIG_off_ind - TRIG_on_ind < 50;
     TRIG_on_ind = TRIG_on_ind(~bad_ind);
     TRIG_off_ind = TRIG_off_ind(~bad_ind);
@@ -335,7 +410,7 @@ if rec_LF
     LF = resample(LF', 2, 5); LF = LF';
 
     % compute evp task matrices
-    if strcmp('evp', rec_task) | strcmp('rom', rec_task)
+    if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
         LF_mat = nan(chs_no, 500, numel(TRIG_on_time));
         for i = 1:numel(TRIG_on_time)
             LF_mat(:,:,i) = LF(chs, ...
@@ -345,7 +420,7 @@ if rec_LF
         if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,1:100,:),2), 1, 500, 1); end
     end
 
-    if strcmp('rom', rec_task)
+    if strcmp('ROM', rec_task)
 
         tilts = unique(STIM.tilt(:,1));
         LF_tilts = nan(size(LF_mat,1), numel(tilts));
@@ -382,7 +457,7 @@ if rec_AP
     for i = chs; MR(i,MR_times{i}) = 1; end
     MC = rasterconvolution(MR, defkernel('psp', 0.02, 1000), 1000);
 
-    if strcmp('evp', rec_task) | strcmp('rom', rec_task)
+    if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
         MC_mat = nan(chs_no, 500, numel(TRIG_on_time));
         ME_mat = nan(chs_no, 500, numel(TRIG_on_time));
         for i = 1:numel(TRIG_on_time)
