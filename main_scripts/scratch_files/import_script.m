@@ -9,7 +9,6 @@
 % start fresh
 clear; clc;
 fclose all;
-format long % my preference
 
 disp('STEP 1 COMPLETE: workspace prepared.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -40,6 +39,11 @@ rec_probe = 1;
 
 % evt code location? - add check for DI first then use ML bhv as backup
 evt_form = 'ML'; % 'DI'
+
+% create plot along the way? (LF derived plots currently take the med of
+% a 3 channel bin to avoid broken channels - need to create better method
+% for this in the future)
+gen_plot = true;
 
 % which data?
 rec_AP = false;
@@ -113,10 +117,12 @@ if isempty(rec_dir)
     end
 
     rec_dir = find_dir(np_dir, [rec_task '_' rec_subj '_' rec_date]);
+    warning('MORE THAN ONE RUN OF THE TASK FOUND. USING LAST RUN.');
+    rec_dir = [rec_dir{numel(rec_dir)} '\'];
 
 end
 
-if isempty(rec_nitt) & numel(rec_dir) > 1
+if isempty(rec_nitt) & numel(rec_dir) > 1 & iscell(rec_dir)
     warning('MORE THAN ONE RUN OF THE TASK FOUND. USING LAST RUN.');
     rec_dir = rec_dir{numel(rec_dir)};
 else
@@ -128,12 +134,9 @@ end
 
 
 % put together the relevant node dirs
-if isempty(rec_node)
-    node_dir = find_dir([rec_dir '\'], 'Record Node');
-    if numel(node_dir) > 1; warning('MORE THAN 1 NODE FOUND. USING FIRST NODE FOUND'); end
-    node_dir = node_dir{1};
-else
-end
+node_dir = find_dir([rec_dir '\'], 'Record Node');
+if numel(node_dir) > 1; warning('MORE THAN 1 NODE FOUND. USING FIRST NODE FOUND'); end
+node_dir = [node_dir{1} '\'];
 
 if isempty(rec_expt)
     rec_node_dir = find_dir([node_dir '\'], 'experiment');
@@ -280,29 +283,33 @@ disp('STEP 4 COMPLETE: data loaded.');
 %% EVENT CODES
 tic
 
-if strcmp(evt_form, 'ML')
+switch rec_task
+    case {'ROM', 'DOT'}
+        if strcmp(evt_form, 'ML')
 
-    if numel(find_file(rec_dir, '.g')) 
-        grating_path = find_file(rec_dir, '.g', false);
-        if numel(grating_path) > 1; error('MORE THAN ONE GRATING RECORD!'); end
-        grating_path = grating_path{1};
-    else
-        [t_file, t_path] = uigetfile; 
-        grating_path = [t_path t_file];
+            if numel(find_file(rec_dir, '.g'))
+                grating_path = find_file(rec_dir, '.g', false);
+                if numel(grating_path) > 1; error('MORE THAN ONE GRATING RECORD!'); end
+                grating_path = grating_path{1};
+            else
+                [t_file, t_path] = uigetfile;
+                grating_path = [t_path t_file];
 
-    end
+            end
 
-    t_ind_1 = strfind(grating_path, '.g');
-    t_ind_2 = strfind(grating_path, '_');
-    t_ind_3 = find(t_ind_2 < t_ind_1, 1, 'last');
-    t_ind_4 = t_ind_2(t_ind_3);
-    grating_task = grating_path(t_ind_4+1:t_ind_1-4);
+            t_ind_1 = strfind(grating_path, '.g');
+            t_ind_2 = strfind(grating_path, '_');
+            t_ind_3 = find(t_ind_2 < t_ind_1, 1, 'last');
+            t_ind_4 = t_ind_2(t_ind_3);
+            grating_task = grating_path(t_ind_4+1:t_ind_1-4);
 
-    STIM = MLextractevt(grating_task, grating_path, rec_dir);
+            STIM = MLextractevt(grating_task, grating_path, rec_dir);
 
-elseif strcmp(evt_form, 'DI')
+        elseif strcmp(evt_form, 'DI')
 
-    %%%%% ADD READING OF EMBEDDED DIGITAL INPUTS FOR EVENT CODES %%%%%%%
+            %%%%% ADD READING OF EMBEDDED DIGITAL INPUTS FOR EVENT CODES %%%%%%%
+
+        end
 
 end
 
@@ -406,21 +413,36 @@ end
 
 if rec_LF
 
-    % test bandpass filtering - seems to work...
-    %for i = chs; LF(i,:) = bandpassfilter(LF(i,:), 2500, [40 150]); end
-    %for i = chs; LF(i,:) = computepower(LF(i,:), 2500, 20); end
-    
     LF = resample(LF', 2, 5); LF = LF';
 
     % compute evp task matrices
     if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
-        LF_mat = nan(chs_no, 500, numel(TRIG_on_time));
+        LF_mat = nan(chs_no, 600, numel(TRIG_on_time));
         for i = 1:numel(TRIG_on_time)
             LF_mat(:,:,i) = LF(chs, ...
-                find(TRIG_on_time(i)==LF_TIME)-99 : ...
+                find(TRIG_on_time(i)==LF_TIME)-199 : ...
                 find(TRIG_on_time(i)==LF_TIME)+400);
         end
-        if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,1:100,:),2), 1, 500, 1); end
+        if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,100:199,:),2), 1, 600, 1); end
+
+        if gen_plot
+        figure; subplot(1,4,1);
+        imagesc(-99:200, 3.83:-.01:0, smoothinspace(mean(LF_mat(:,101:400,:),3), 1, 'med'))
+        set(gca, 'ydir', 'reverse', 'linewidth', 2, 'fontsize', 12)
+        title('Stimulus-evoked LFP')
+        xlabel('Time from flash (ms)'); ylabel('Depth from top of probe (mm)')
+        colorbar
+
+        subplot(1,4,2);
+        CSD_mat = computecsd(smoothinspace(mean(LF_mat(:,101:400,:),3), 1, 'med'));
+        imagesc(-99:200, 3.82:-.01:0, smooth2d(CSD_mat(2:end-1,:)))
+        colormap(tej)
+        set(gca, 'ydir', 'reverse', 'linewidth', 2, 'fontsize', 12)
+        title('Stimulus-evoked CSD')
+        xlabel('Time from flash (ms)'); ylabel('Depth from top of probe (mm)')
+        colorbar
+        end
+
     end
 
     if strcmp('ROM', rec_task)
@@ -435,14 +457,17 @@ if rec_LF
         LF_tilts_pref_val_norm = (LF_tilts_pref_val-min(LF_tilts_pref_val)) ...
             ./ (max(LF_tilts_pref_val)-min(LF_tilts_pref_val));
         for i = chs; LF_tilts_pref_ori(i) = tilts(LF_tilts_pref_ind(i)); end 
-        subplot(1,2,1)
-        axis square;
-        scatter(LF_tilts_pref_ori, chs);
-        title('LFP preferred orientation');
-        subplot(1,2,2)
-        axis square
-        scatter(LF_tilts_pref_val_norm, chs);
-        title('LFP strength of selectivity');
+
+        if gen_plot
+            figure; subplot(1,2,1);
+            axis square;
+            scatter(LF_tilts_pref_ori, chs);
+            title('LFP preferred orientation');
+            subplot(1,2,2)
+            axis square
+            scatter(LF_tilts_pref_val_norm, chs);
+            title('LFP strength of selectivity');
+        end
 
     end
 
@@ -461,20 +486,20 @@ if rec_AP
     MC = rasterconvolution(MR, defkernel('psp', 0.02, 1000), 1000);
 
     if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
-        MC_mat = nan(chs_no, 500, numel(TRIG_on_time));
-        ME_mat = nan(chs_no, 500, numel(TRIG_on_time));
+        MC_mat = nan(chs_no, 600, numel(TRIG_on_time));
+        ME_mat = nan(chs_no, 600, numel(TRIG_on_time));
         for i = 1:numel(TRIG_on_time)
             MC_mat(:,:,i) = MC(chs, ...
-                find(TRIG_on_time(i)==AP_TIME)-99 : ...
+                find(TRIG_on_time(i)==AP_TIME)-199 : ...
                 find(TRIG_on_time(i)==AP_TIME)+400);
             ME_mat(:,:,i) = ME(chs, ...
-                find(TRIG_on_time(i)==AP_TIME)-99 : ...
+                find(TRIG_on_time(i)==AP_TIME)-199 : ...
                 find(TRIG_on_time(i)==AP_TIME)+400);
         end
         
         if rec_blc
-            MC_mat = MC_mat - repmat(mean(MC_mat(:,1:100,:),2), 1, 500, 1);
-            ME_mat = ME_mat - repmat(mean(ME_mat(:,1:100,:),2), 1, 500, 1);
+            MC_mat = MC_mat - repmat(mean(MC_mat(:,100:199,:),2), 1, 600, 1);
+            ME_mat = ME_mat - repmat(mean(ME_mat(:,100:199,:),2), 1, 600, 1);
         end
 
     end

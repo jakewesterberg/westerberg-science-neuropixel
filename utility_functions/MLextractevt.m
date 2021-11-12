@@ -92,16 +92,14 @@ else
 
     % stimulus text file
     switch paradigm
-        case {'rfori', 'rfsf', 'rfsize','cosinteroc','mcosinteroc','bminteroc'} % my task should go here
+        case {'rfori', 'rfsf', 'rfsize','cosinteroc','mcosinteroc','bminteroc','rforiWithBlanks'} % my task should go here
             grating = readgGrating_np(gratingfile);
 
         case {'drfori','rfsfdrft','dmcosinteroc'}
             grating = readgDRFTGrating_np(gratingfile);
     end
 
-    % check that all is good between NEV and grating text file;
     n = length(grating.trial);
-    [allpass, message] =  checkTrMatch(grating,NEV); % 2021 problems arise here when we don't have the event code sequencing triplets OR ML and BR timestamp misalignment
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % general post-processing of grating structure
@@ -135,7 +133,7 @@ else
 
     switch paradigm
 
-        case {'rfori', 'rfsf','rfsize'}
+        case {'rfori', 'rfsf','rfsize','rforiWithBlanks'}
             grating.cued      = zeros(n,1); % never cued
             grating.ditask    = false(n,1); % never di task
             grating.rsvpmask  = false(n,1); % never rsvpmask
@@ -344,11 +342,11 @@ else
     obs = 0;
 
     % sort trials , get TPs
-    for t = 1:length(pEvC)
+    for t = 1:length(STIM.pEvC)
 
         % examin presentations ONLY if there is a off event marker (not a break fixation)
         stim =  find(grating.trial == t); if any(diff(stim) ~= 1); error('check stim file'); end
-        nstim = sum(pEvC{t} == 24 | pEvC{t} == 26  | pEvC{t} == 28   | pEvC{t} == 30  | pEvC{t} == 32); if nstim == 0; continue; end
+        nstim = sum(STIM.pEvC{t} == 24 | STIM.pEvC{t} == 26  | STIM.pEvC{t} == 28   | STIM.pEvC{t} == 30  | STIM.pEvC{t} == 32); if nstim == 0; continue; end
 
         for p = 1:nstim
             obs = obs + 1;
@@ -356,14 +354,14 @@ else
             STIM.('filen')(obs,:) = 1;
             STIM.('trl')(obs,:)   = t;
             STIM.('prez')(obs,:)  = p; % ????????
-            STIM.('reward')(obs,:) = (any(pEvC{t} == 96));
+            STIM.('reward')(obs,:) = (any(STIM.pEvC{t} == 96));
 
             % trigger points
-            stimon  =  pEvC{t} == 21 + p*2;
-            stimoff =  pEvC{t} == 22 + p*2;
+            stimon  =  STIM.pEvC{t} == 21 + p*2;
+            stimoff =  STIM.pEvC{t} == 22 + p*2;
 
-            st = double(pEvT{t}(stimon));
-            en = double(pEvT{t}(stimoff));
+            st = double(STIM.pEvT{t}(stimon));
+            en = double(STIM.pEvT{t}(stimoff));
 
             STIM.tp_ec(obs,:)     = [21  22] + p*2; % see lines 435-6
             STIM.tp_sp(obs,:)     = [st(end) en];
@@ -382,7 +380,7 @@ else
                 STIM.('filen')(obs,:) = 1;
                 STIM.('trl')(obs,:)   = t;
                 STIM.('prez')(obs,:)  = p; % ????????
-                STIM.('reward')(obs,:) = (any(pEvC{t} == 96));
+                STIM.('reward')(obs,:) = (any(STIM.pEvC{t} == 96));
 
                 % trigger points
                 STIM.tp_ec(obs,:) = [21  21] + p*2; % see lines 435-6

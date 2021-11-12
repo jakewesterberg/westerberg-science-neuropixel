@@ -1,8 +1,8 @@
 function [CSDf] = smooth2d(CSD)
 
     new_CSD_matrix=[];
-    totchan = (size(CSD,1) + 2)/10;
-    el_pos = .1:.1:totchan;
+    totchan = (size(CSD,1) + 2)/100;
+    el_pos = .01:.01:totchan;
 
     
     npoints = 10* size(CSD,1);
