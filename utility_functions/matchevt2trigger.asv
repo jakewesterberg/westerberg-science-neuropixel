@@ -1,0 +1,10 @@
+function [adj_evt_stamps, adj_evt_inds] = matchevt2trigger(evt_stamps, trigger_stamps)
+
+adj_evt_times = nan(1,numel(evt_times));
+for i = 1 : numel(evt_times)
+
+    stamp_diff = trigger_stamps - evt_stamps(i);
+    [diff_val, min_ind] = min(stamp_diff);
+
+end
+end

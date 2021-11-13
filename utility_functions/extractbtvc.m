@@ -1,4 +1,4 @@
-function btvc = extract_btvc(info, ch)
+function btvc = extractbtvc(info, ch)
 % extract bitvolts and units
 t_ind_1 = strfind(info, ch);
 t_ind_2 = strfind(info, '"bit_volts": ');

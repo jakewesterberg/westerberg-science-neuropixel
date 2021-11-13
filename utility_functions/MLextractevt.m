@@ -19,13 +19,9 @@ if ischar(DI)
         EventCodes = NEV.Data.SerialDigitalIO.UnparsedData - 128;
         EventSamples = double(NEV.Data.SerialDigitalIO.TimeStamp);
     end
-elseif nargin == 4
-
-    disp('Pulling event codes from digital inputs to open-ephys.')
-    EventCodes = DI - 128; % strobe correction - loses 8th bit
-    EventSamples = DT(EventCodes > 0);
-    EventCodes = EventCodes(EventCodes > 0);
-
+else
+    EventCodes = DI;
+    EventSamples = DT;
 end
 
 [STIM.pEvC, STIM.pEvT] = parsEventCodesML(EventCodes,EventSamples);
@@ -88,7 +84,9 @@ else
         'ypos',...
         'diameter',...
         'gabor',...
-        'timestamp'};
+        'timestamp', ...
+        'isPresent', ...
+        'trialHasBlank'};
 
     % stimulus text file
     switch paradigm
