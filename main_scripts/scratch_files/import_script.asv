@@ -8,7 +8,7 @@
 
 % start fresh
 clear; clc;
-fclose all;
+fclose all; % make sure fids are closed
 
 disp('STEP 1 COMPLETE: workspace prepared.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -280,11 +280,15 @@ switch rec_task
             try; STIM = MLextractevt(grating_task, grating_path, EVT_codes, EVT_times);
             catch; STIM = MLextractevt(grating_task, grating_path, rec_dir); end
 
-            [STIM.triggertimes_diffs, ...
-                STIM.triggertimes_stamps, ...
-                STIM.triggertimes_inds] ...
-                = matchevt2trigger(STIM.tp_sp(:,1), trigger_on_stamps);
+            if exist('EVT_codes', 'var')
+                [STIM.triggertimes_diffs, ...
+                    STIM.triggertimes_stamps, ...
+                    STIM.triggertimes_inds] ...
+                    = matchevt2trigger(STIM.tp_sp(:,1), trigger_on_stamps);
+            else
+                warning('DI NOT AVAILABLE IN OPEN-EPHYS DATA. ESTIMATING MATCH BETWEEN EVT AND SYNC')
 
+            end
         end
 end
 

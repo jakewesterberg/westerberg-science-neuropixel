@@ -347,6 +347,10 @@ else
         nstim = sum(STIM.pEvC{t} == 24 | STIM.pEvC{t} == 26  | STIM.pEvC{t} == 28   | STIM.pEvC{t} == 30  | STIM.pEvC{t} == 32); if nstim == 0; continue; end
 
         for p = 1:nstim
+
+            % NEED TO ADJ THE EVT CODES TIMES SO THAT THEY ARE RELATIVE TO
+            % REC START TIME INSTEAD OF TRIAl TIME.
+
             obs = obs + 1;
             STIM.('task'){obs,:}  =  paradigm;
             STIM.('filen')(obs,:) = 1;

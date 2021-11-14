@@ -8,7 +8,7 @@
 
 % start fresh
 clear; clc;
-fclose all;
+fclose all; % make sure fids are closed
 
 disp('STEP 1 COMPLETE: workspace prepared.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -27,7 +27,7 @@ rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
 % or... 2) the recording data header info
 rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
 rec_subj = []; % leave empty if use most recent. ex. 'B52';
-rec_date = []; % leave empty if use most recent. ex. '2021-11-09';
+rec_date = ['2021-11-09']; % leave empty if use most recent. ex. '2021-11-09';
 rec_node = []; % leave empty if only one rec node
 adc_node = []; % leave empty if same as rec
 rec_nitt = []; % leave empty if one task file or want most recent file
@@ -53,7 +53,7 @@ gen_plot = true;
 
 % which data?
 rec_AP = false;
-rec_LF = true;
+rec_LF = false;
 
 % common ave ref?
 rec_car = true;
@@ -277,14 +277,20 @@ switch rec_task
             t_ind_4 = t_ind_2(t_ind_3);
             grating_task = grating_path(t_ind_4+1:t_ind_1-4);
 
-            try; STIM = MLextractevt(grating_task, grating_path, EVT_codes, EVT_times);
-            catch; STIM = MLextractevt(grating_task, grating_path, rec_dir); end
+            if ~isempty(EVT_codes); EVT = MLextractevt(grating_task, grating_path, EVT_codes, EVT_times);
+            else; EVT = MLextractevt(grating_task, grating_path, rec_dir); end
 
-            [STIM.triggertimes_diffs, ...
-                STIM.triggertimes_stamps, ...
-                STIM.triggertimes_inds] ...
-                = matchevt2trigger(STIM.tp_sp(:,1), trigger_on_stamps);
-
+            if ~isempty(EVT_codes)
+                [EVT.triggertimes_diffs, ...
+                    EVT.triggertimes_stamps, ...
+                    EVT.triggertimes_inds] ...
+                    = matchevt2trigger(EVT.tp_sp(:,1), trigger_on_stamps);
+            else
+                warning('DI NOT AVAILABLE IN OPEN-EPHYS DATA. ESTIMATING MATCH BETWEEN EVT AND SYNC')
+                [EVT.triggertimes_stamps, ...
+                    EVT.triggertimes_inds] ...
+                    = rescueevts();
+            end
         end
 end
 
@@ -478,10 +484,10 @@ if rec_LF
 
     if strcmp('ROM', rec_task)
 
-        tilts = unique(STIM.tilt(:,1));
+        tilts = unique(EVT.tilt(:,1));
         LF_tilts = nan(size(LF_mat,1), numel(tilts));
         for i = 1 : numel(tilts)
-            LF_tilts(:,i) = median(mean(LF_mat(:,200:300,STIM.tilt(:,1)==tilts(i)),2),3);
+            LF_tilts(:,i) = median(mean(LF_mat(:,200:300,EVT.tilt(:,1)==tilts(i)),2),3);
         end
         LF_tilts = LF_tilts - repmat(median(LF_tilts,2), 1, numel(tilts));
         [LF_tilts_pref_val, LF_tilts_pref_ind] = max(LF_tilts, [], 2);
