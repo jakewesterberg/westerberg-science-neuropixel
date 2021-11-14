@@ -10,6 +10,6 @@ for i = 1 : numel(evt_stamps)
     [adj_evt_diffs(i), min_ind] = min(stamp_diff);
 
     adj_evt_stamps(i) = trigger_stamps(min_ind);
-    adj_evt_stamps(i) = min_ind;
+    adj_evt_inds(i) = min_ind;
 end
 end

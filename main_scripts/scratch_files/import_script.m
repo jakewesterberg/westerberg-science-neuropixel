@@ -22,7 +22,7 @@ np_dir = 'D:\data_transfer\';
 rec_dir = []; % leave blank
 
 % specify task
-rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
+rec_task = 'DOT'; %'EVP' 'ROM', 'DOT';
 
 % or... 2) the recording data header info
 rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
@@ -200,7 +200,7 @@ AD = AD .* AD_btvc;
 
 % get the adc sync times
 AD_sync = AD(AD_map.SYNC, :);
-AD_TIME = (1:numel(AD_sync))/AD_fs;
+AD_time = (1:numel(AD_sync))/AD_fs;
 
 AD_sync = AD_sync .* AD_btvc;
 
@@ -215,6 +215,8 @@ AD_stamps_synced = double(AD_stamps_synced);
 AD = resample(AD', t_val_1, t_val_2); AD = AD';
 AD_stamps = resample(AD_stamps, t_val_1, t_val_2);
 AD_stamps_synced = resample(AD_stamps_synced, t_val_1, t_val_2);
+AD_time = resample(AD_time, t_val_1, t_val_2);
+AD_sync = resample(AD_sync, t_val_1, t_val_2);
 AD_fs = out_fs;
 
 % find photo triggers on and off
@@ -226,8 +228,8 @@ trigger_off_ind = triggerdetect(AD(AD_map.TRIG, :));
 trigger_off_stamps = AD_stamps(trigger_off_ind);
 
 % convert ind to times
-trigger_on_time = AD_TIME(trigger_on_ind);
-trigger_off_time = AD_TIME(trigger_off_ind);
+trigger_on_time = AD_time(trigger_on_ind);
+trigger_off_time = AD_time(trigger_off_ind);
 
 clear -regexp ^t_
 
@@ -260,9 +262,8 @@ end
 switch rec_task
     case {'ROM', 'RSM', 'RFM', 'DOT'}
         if strcmp(evt_form, 'ML')
-
             try
-                grating_path = find_file(rec_dir, '.g', false);
+                grating_path = find_file(rec_dir, '\.g', false);
                 if numel(grating_path) > 1; error('MORE THAN ONE GRATING RECORD!'); end
                 grating_path = grating_path{1};
             catch
@@ -288,8 +289,15 @@ switch rec_task
             else
                 warning('DI NOT AVAILABLE IN OPEN-EPHYS DATA. ESTIMATING MATCH BETWEEN EVT AND SYNC')
                 [EVT.triggertimes_stamps, ...
-                    EVT.triggertimes_inds] ...
-                    = rescueevts();
+                    EVT.triggertimes_inds, ...
+                    good_triggers] ...
+                    = rescueevts(EVT.estPresTime, trigger_on_stamps);
+                trigger_off_ind = trigger_off_ind(good_triggers);
+                trigger_off_time = trigger_off_time(good_triggers);
+                trigger_off_stamps = trigger_off_stamps(good_triggers);
+                trigger_on_ind = trigger_off_ind(good_triggers);
+                trigger_on_time = trigger_off_time(good_triggers);
+                trigger_on_stamps = trigger_off_stamps(good_triggers);
             end
         end
 end
@@ -299,7 +307,8 @@ clear -regexp ^t_
 toc
 disp('STEP 5 COMPLETE: loaded EVT/DI data.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% LOAD NEURAL DATA
+%% LOAD DATA PREP
+tic
 
 % open info files
 rec_inff = [rec_node_dir 'structure.oebin'];
@@ -311,48 +320,18 @@ imec_dir = find_dir([rec_node_dir 'continuous\'], 'Neuropix-PXI');
 % determine number of neuropixels probes
 np_no = numel(imec_dir)/2;
 
-% define where the AP data is
-AP_file = [imec_dir{rec_probe*2-1} '\continuous.dat'];
-
-% define where the LF data is
-LF_file = [imec_dir{rec_probe*2} '\continuous.dat'];
-
-if rec_AP
-
-    % open the AP file
-    AP_fid = fopen(AP_file, 'r');
-
-    % determine size of file
-    fseek(AP_fid, 0, 'eof');
-    AP_filesize = ftell(AP_fid);
-    fseek(AP_fid, 0, 'bof');
-
-    % determine matrix size
-    AP_samples = AP_filesize/385;
-    if mod(AP_samples,1)~=0; error('Number of samples in AP file is not an integer!'); end
-    AP_size = [385, AP_samples];
-
-    % load in AP data
-    AP = fread(AP_fid, AP_size, 'int16');
-    AP_sync = AP(385, :);
-    AP = AP(1:384, :);
-
-    % close file
-    fclose all; clear AP_fid
-
-    % extract bitvolts and units for AP
-    AP_btvc = extractbtvc(rec_info, 'AP1');
-
-    % extract bitvolts and units for AP_sync
-    AP_sync_btvc = extractbtvc(rec_info, 'AP_SYNC');
-
-    % convert signals to proper units
-    AP = AP .* AP_btvc;
-    AP_sync = AP_sync .* AP_sync_btvc;
-
-end
+toc
+disp('STEP 6.1 COMPLETE: data loading prep finished.');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% LOAD LF DATA?
 
 if rec_LF
+    tic
+
+    % define where the LF data is
+    LF_file = [imec_dir{rec_probe*2} '\continuous.dat'];
+    t_ind_1 = strfind(imec_dir{rec_probe*2}, filesep);
+    LF_proc = imec_dir{rec_probe*2}(t_ind_1(end)+1:end);
 
     % open the LF file
     LF_fid = fopen(LF_file, 'r');
@@ -381,43 +360,31 @@ if rec_LF
     % extract bitvolts and units for LF_sync
     LF_sync_btvc = extractbtvc(rec_info, 'LFP_SYNC');
 
+    % AP units, fs
+    LF_units = extractunits(rec_info, 'LFP1');
+    LF_fs = extractfs(rec_info, LF_proc);
+
     % convert signals to proper units
     LF = LF .* LF_btvc;
     LF_sync = LF_sync .* LF_sync_btvc;
 
-end
-
-toc
-disp('STEP 6 COMPLETE: loaded neural data.');
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% PREPROCESS
-tic
-
-if rec_AP
-    % get the data sync times
-    AP_sync = resample(AP_sync, 1, 30);
-
-    % compute xcorr - note that the lag seems to change over the course of a
-    % session. need to accomodate by making adjustments in bins...
-    AP_sync_lag = nan(1,numel(AP_sync));
-    for i = 100 : 100 : numel(AP_sync) - 5500
-        [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+4999), AP_sync(i:i+4999), 250);
-        [t_max_1, t_ind_1] = max(t_rvl_1);
-        AP_sync_lag(i-99:i+99) = t_lag_1(t_ind_1);
-        clear -regexp ^t_
-    end
-    AP_sync_lag(isnan(AP_sync_lag)) = AP_sync_lag(find(~isnan(AP_sync_lag),1,'last'));
-
-    % initialize the timing vecs
-    AP_TIME = 1:numel(AP_sync);
-
-    % adjust times
-    AP_TIME = AP_TIME + AP_sync_lag;
-end
-
-if rec_LF
     % get the data sync times
     LF_sync = resample(LF_sync, 2, 5);
+
+    % get the LF timestamps
+    LF_stamps = readNPY([daq_dir filesep 'timestamps.npy']);
+    LF_stamps_synced = readNPY([daq_dir filesep 'synchronized_timestamps.npy']);
+    LF_stamps = double(LF_stamps);
+    LF_stamps_synced = double(LF_stamps_synced);
+
+    % downsample LF data
+    [t_val_1, t_val_2] = rat(out_fs/LF_fs);
+    LF = resample(LF', t_val_1, t_val_2); LF = LF';
+    LF_stamps = resample(LF_stamps, t_val_1, t_val_2);
+    LF_stamps_synced = resample(LF_stamps_synced, t_val_1, t_val_2);
+    LF_time = resample(LF_time, t_val_1, t_val_2);
+    LF_sync = resample(LF_sync, t_val_1, t_val_2);
+    LF_fs = out_fs;
 
     % compute xcorr - note that the lag seems to change over the course of a
     % session. need to accomodate by making adjustments in bins...
@@ -435,22 +402,108 @@ if rec_LF
 
     % adjust times
     LF_TIME = LF_TIME + LF_sync_lag;
+
+    % common average reference?
+    if rec_car; LF = comaveref(LF); end
+
+    % median offset correction?
+    if rec_moc; LF = LF - median(LF, 2); end
+
+    toc
+    disp('STEP 6.2 COMPLETE: loaded LF data.');
+
 end
 
-% apply common average reference
-if rec_car
-    if rec_AP; AP = comaveref(AP); end
-    if rec_LF; LF = comaveref(LF); end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% LOAD AP DATA?
+
+if rec_AP
+    tic
+
+    % define where the LF data is
+    AP_file = [imec_dir{rec_probe*2-1} '\continuous.dat'];
+    t_ind_1 = strfind(imec_dir{rec_probe*2-1}, filesep);
+    AP_proc = imec_dir{rec_probe*2-1}(t_ind_1(end)+1:end);
+
+    % open the AP file
+    AP_fid = fopen(AP_file, 'r');
+
+    % determine size of file
+    fseek(AP_fid, 0, 'eof');
+    AP_filesize = ftell(AP_fid);
+    fseek(AP_fid, 0, 'bof');
+
+    % determine matrix size
+    AP_samples = AP_filesize/385;
+    if mod(AP_samples,1)~=0; error('Number of samples in AP file is not an integer!'); end
+    AP_size = [385, AP_samples];
+
+    % load in AP data
+    AP = fread(AP_fid, AP_size, 'int16');
+    AP_sync = AP(385, :);
+    AP = AP(1:384, :);
+
+    % close file
+    fclose all; clear AP_fid
+
+    % extract bitvolts and units for AP
+    AP_btvc = extractbtvc(rec_info, 'AP1');
+
+    % extract bitvolts and units for AP_sync
+    AP_sync_btvc = extractbtvc(rec_info, 'AP_SYNC');
+
+    % AP units, fs
+    AP_units = extractunits(rec_info, 'AP1');
+    AP_fs = extractfs(rec_info, LF_proc);
+
+    % convert signals to proper units
+    AP = AP .* AP_btvc;
+    AP_sync = AP_sync .* AP_sync_btvc;
+
+    %%%%%%%%%%%%%%%%%%% BE AWARE WE NEED TO EXTRACT THE USEFUL SIGNAL HERE
+    %%%%%%%%%%%%%%%%%%% BEFORE DOWNSAMPLING!!!!!!!!
+
+    % downsample LF data
+    [t_val_1, t_val_2] = rat(out_fs/AP_fs);
+    AP = resample(AP', t_val_1, t_val_2); AP = AP';
+    AP_stamps = resample(AP_stamps, t_val_1, t_val_2);
+    AP_stamps_synced = resample(AP_stamps_synced, t_val_1, t_val_2);
+    AP_time = resample(AP_time, t_val_1, t_val_2);
+    AP_sync = resample(AP_sync, t_val_1, t_val_2);
+    AP_fs = out_fs;
+
+    % compute xcorr - note that the lag seems to change over the course of a
+    % session. need to accomodate by making adjustments in bins...
+    AP_sync_lag = nan(1,numel(AP_sync));
+    for i = 100 : 100 : numel(AP_sync) - 5500
+        [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+4999), AP_sync(i:i+4999), 250);
+        [t_max_1, t_ind_1] = max(t_rvl_1);
+        AP_sync_lag(i-99:i+99) = t_lag_1(t_ind_1);
+        clear -regexp ^t_
+    end
+    AP_sync_lag(isnan(AP_sync_lag)) = AP_sync_lag(find(~isnan(AP_sync_lag),1,'last'));
+
+    % initialize the timing vecs
+    AP_TIME = 1:numel(AP_sync);
+
+    % adjust times
+    AP_TIME = AP_TIME + AP_sync_lag;
+
+    % common average reference?
+    if rec_car; AP = comaveref(AP); end
+
+    % median offset correction?
+    if rec_moc; AP = AP - median(AP, 2); end
+
+    toc
+    disp('STEP 6.3 COMPLETE: loaded AP data.');
 end
 
-if rec_moc
-    if rec_AP; AP = AP - median(AP, 2); end
-    if rec_LF; LF = LF - median(LF, 2); end
-end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% PREPROCESS
+tic
 
 if rec_LF
-
-    LF = resample(LF', 2, 5); LF = LF';
 
     % compute evp task matrices
     if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
@@ -543,7 +596,7 @@ if rec_AP
 end
 
 toc
-disp('STEP 6 COMPLETE: data preprocessed.');
+disp('STEP 7 COMPLETE: data preprocessed.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 

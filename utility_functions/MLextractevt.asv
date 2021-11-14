@@ -49,6 +49,12 @@ if strcmp(paradigm, 'dotmapping')
             STIM.y(1,obs)     = dots.dot_y(stim(p));
             STIM.d(1,obs)     = dots.diameter(stim(p));
             STIM.eye(1,obs)   = dots.dot_eye(stim(p));
+            
+            if exist('bhv2', 'var')
+                STIM.estPresTime(obs) = bhv2(dots.trial == t).AbsoluteTrialStartTime + ...
+                    bhv2(dot.trial == t).BehavioralCodes.CodeTimes;
+            end
+
         end
     end
 

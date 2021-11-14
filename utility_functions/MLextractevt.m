@@ -49,6 +49,14 @@ if strcmp(paradigm, 'dotmapping')
             STIM.y(1,obs)     = dots.dot_y(stim(p));
             STIM.d(1,obs)     = dots.diameter(stim(p));
             STIM.eye(1,obs)   = dots.dot_eye(stim(p));
+
+            stimont  =  STIM.pEvC{t} == 21 + p*2;
+            
+            if exist('bhv2', 'var')
+                STIM.estPresTime(1,obs) = bhv2(t).AbsoluteTrialStartTime + ...
+                    bhv2(t).BehavioralCodes.CodeTimes(find(stimont));
+            end
+
         end
     end
 
@@ -368,6 +376,10 @@ else
             STIM.tp_ec(obs,:)     = [21  22] + p*2; % see lines 435-6
             STIM.tp_sp(obs,:)     = [st(end) en];
 
+            if exist('bhv2', 'var')
+                STIM.estPresTime(1,obs) = bhv2(t).AbsoluteTrialStartTime + ...
+                    bhv2(t).BehavioralCodes.CodeTimes(find(stimon));
+            end
 
             % write STIM features
             for f = 1:length(allstimfeatures)
