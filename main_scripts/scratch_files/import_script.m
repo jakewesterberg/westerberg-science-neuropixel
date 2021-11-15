@@ -27,7 +27,7 @@ rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
 % or... 2) the recording data header info
 rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
 rec_subj = []; % leave empty if use most recent. ex. 'B52';
-rec_date = ['2021-11-09']; % leave empty if use most recent. ex. '2021-11-09';
+rec_date = ['2021-11-06']; % leave empty if use most recent. ex. '2021-11-09';
 rec_node = []; % leave empty if only one rec node
 adc_node = []; % leave empty if same as rec
 rec_nitt = []; % leave empty if one task file or want most recent file
