@@ -22,12 +22,12 @@ np_dir = 'D:\data_transfer\';
 rec_dir = []; % leave blank
 
 % specify task
-rec_task = 'DOT'; %'EVP' 'ROM', 'DOT';
+rec_task = 'EVP'; %'EVP' 'ROM', 'DOT';
 
 % or... 2) the recording data header info
 rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
 rec_subj = []; % leave empty if use most recent. ex. 'B52';
-rec_date = ['2021-11-09']; % leave empty if use most recent. ex. '2021-11-09';
+rec_date = [];%['2021-11-09']; % leave empty if use most recent. ex. '2021-11-09';
 rec_node = []; % leave empty if only one rec node
 adc_node = []; % leave empty if same as rec
 rec_nitt = []; % leave empty if one task file or want most recent file
@@ -53,7 +53,7 @@ gen_plot = true;
 
 % which data?
 rec_AP = false;
-rec_LF = false;
+rec_LF = true;
 
 % common ave ref?
 rec_car = true;
@@ -200,7 +200,7 @@ AD = AD .* AD_btvc;
 
 % get the adc sync times
 AD_sync = AD(AD_map.SYNC, :);
-AD_time = (1:numel(AD_sync))/AD_fs;
+AD_time = (1:numel(AD_sync))./AD_fs;
 
 AD_sync = AD_sync .* AD_btvc;
 
@@ -291,13 +291,15 @@ switch rec_task
                 [EVT.triggertimes_stamps, ...
                     EVT.triggertimes_inds, ...
                     good_triggers] ...
-                    = rescueevts(EVT.estPresTime, trigger_on_stamps);
+                    = rescueevts(EVT.estPresTime, trigger_on_stamps');
+
                 trigger_off_ind = trigger_off_ind(good_triggers);
                 trigger_off_time = trigger_off_time(good_triggers);
                 trigger_off_stamps = trigger_off_stamps(good_triggers);
-                trigger_on_ind = trigger_off_ind(good_triggers);
-                trigger_on_time = trigger_off_time(good_triggers);
-                trigger_on_stamps = trigger_off_stamps(good_triggers);
+                trigger_on_ind = trigger_on_ind(good_triggers);
+                trigger_on_time = trigger_on_time(good_triggers);
+                trigger_on_stamps = trigger_on_stamps(good_triggers);
+
             end
         end
 end
@@ -346,14 +348,6 @@ if rec_LF
     if mod(LF_samples,1)~=0; error('Number of samples in LF file is not an integer!'); end
     LF_size = [385, LF_samples];
 
-    % load in LF data
-    LF = fread(LF_fid, LF_size, 'int16');
-    LF_sync = LF(385, :);
-    LF = LF(1:384, :);
-
-    % close file
-    fclose all; clear LF_fid
-
     % extract bitvolts and units for LF
     LF_btvc = extractbtvc(rec_info, 'LFP1');
 
@@ -364,16 +358,22 @@ if rec_LF
     LF_units = extractunits(rec_info, 'LFP1');
     LF_fs = extractfs(rec_info, LF_proc);
 
+    % load in LF data
+    LF = fread(LF_fid, LF_size, 'int16');
+    LF_sync = LF(385, :);
+    LF_time = (1:numel(LF_sync))./LF_fs;
+    LF = LF(1:384, :);
+
+    % close file
+    fclose all; clear LF_fid
+
     % convert signals to proper units
     LF = LF .* LF_btvc;
     LF_sync = LF_sync .* LF_sync_btvc;
 
-    % get the data sync times
-    LF_sync = resample(LF_sync, 2, 5);
-
     % get the LF timestamps
-    LF_stamps = readNPY([daq_dir filesep 'timestamps.npy']);
-    LF_stamps_synced = readNPY([daq_dir filesep 'synchronized_timestamps.npy']);
+    LF_stamps = readNPY([imec_dir{rec_probe*2} filesep 'timestamps.npy']);
+    LF_stamps_synced = readNPY([imec_dir{rec_probe*2} filesep 'synchronized_timestamps.npy']);
     LF_stamps = double(LF_stamps);
     LF_stamps_synced = double(LF_stamps_synced);
 
@@ -397,11 +397,8 @@ if rec_LF
     end
     LF_sync_lag(isnan(LF_sync_lag)) = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
 
-    % initialize the timing vecs
-    LF_TIME = 1:numel(LF_sync);
-
     % adjust times
-    LF_TIME = LF_TIME + LF_sync_lag;
+    LF_time = LF_time + LF_sync_lag;
 
     % common average reference?
     if rec_car; LF = comaveref(LF); end
@@ -438,14 +435,6 @@ if rec_AP
     if mod(AP_samples,1)~=0; error('Number of samples in AP file is not an integer!'); end
     AP_size = [385, AP_samples];
 
-    % load in AP data
-    AP = fread(AP_fid, AP_size, 'int16');
-    AP_sync = AP(385, :);
-    AP = AP(1:384, :);
-
-    % close file
-    fclose all; clear AP_fid
-
     % extract bitvolts and units for AP
     AP_btvc = extractbtvc(rec_info, 'AP1');
 
@@ -456,10 +445,24 @@ if rec_AP
     AP_units = extractunits(rec_info, 'AP1');
     AP_fs = extractfs(rec_info, LF_proc);
 
+    % load in AP data
+    AP = fread(AP_fid, AP_size, 'int16');
+    AP_sync = AP(385, :);
+    AP_time = (1:numel(AP_sync))/AP_fs;
+    AP = AP(1:384, :);
+
+    % close file
+    fclose all; clear AP_fid
+
     % convert signals to proper units
     AP = AP .* AP_btvc;
     AP_sync = AP_sync .* AP_sync_btvc;
 
+    % get the LF timestamps
+    AP_stamps = readNPY([imec_dir{rec_probe*2-1} filesep 'timestamps.npy']);
+    AP_stamps_synced = readNPY([imec_dir{rec_probe*2-1} filesep 'synchronized_timestamps.npy']);
+    AP_stamps = double(AP_stamps);
+    AP_stamps_synced = double(AP_stamps_synced);
     %%%%%%%%%%%%%%%%%%% BE AWARE WE NEED TO EXTRACT THE USEFUL SIGNAL HERE
     %%%%%%%%%%%%%%%%%%% BEFORE DOWNSAMPLING!!!!!!!!
 
@@ -483,11 +486,8 @@ if rec_AP
     end
     AP_sync_lag(isnan(AP_sync_lag)) = AP_sync_lag(find(~isnan(AP_sync_lag),1,'last'));
 
-    % initialize the timing vecs
-    AP_TIME = 1:numel(AP_sync);
-
     % adjust times
-    AP_TIME = AP_TIME + AP_sync_lag;
+    AP_time = AP_time + AP_sync_lag;
 
     % common average reference?
     if rec_car; AP = comaveref(AP); end
@@ -500,7 +500,7 @@ if rec_AP
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% PREPROCESS
+%% ONLINE ANALYSIS
 tic
 
 if rec_LF
@@ -509,9 +509,8 @@ if rec_LF
     if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
         LF_mat = nan(chs_no, 600, numel(trigger_on_time));
         for i = 1:numel(trigger_on_time)
-            LF_mat(:,:,i) = LF(chs, ...
-                find(trigger_on_time(i)==LF_TIME)-199 : ...
-                find(trigger_on_time(i)==LF_TIME)+400);
+            [~, t_ind_1] = min(abs(trigger_on_time(i)-LF_time));
+            LF_mat(:,:,i) = LF(chs, t_ind_1-199 : t_ind_1+400);
         end
         if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,100:199,:),2), 1, 600, 1); end
 
@@ -532,7 +531,6 @@ if rec_LF
         xlabel('Time from flash (ms)'); ylabel('Depth from top of probe (mm)')
         colorbar
         end
-
     end
 
     if strcmp('ROM', rec_task)
@@ -558,42 +556,40 @@ if rec_LF
             scatter(LF_tilts_pref_val_norm, chs);
             title('LFP strength of selectivity');
         end
-
-    end
-
-end
-
-if rec_AP
-
-    ME = nan(chs_no, size(AP,2));
-    for i = chs; ME(i,:) = computepower(AP(i,:), 30000, 250); end
-    ME = resample(ME', 1, 30); ME = ME'; ME = ME(:,1:numel(AP_sync));
-
-    MR = AP < mean(AP,2) - (2.5*std(AP,[],2));
-    for i = chs; MR_times{i} = ceil(find(MR(i,:)) ./ 30); end
-    MR = zeros(chs_no, numel(AP_sync));
-    for i = chs; MR(i,MR_times{i}) = 1; end
-    MC = rasterconvolution(MR, defkernel('psp', 0.02, out_fs), out_fs);
-
-    if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
-        MC_mat = nan(chs_no, 600, numel(trigger_on_time));
-        ME_mat = nan(chs_no, 600, numel(trigger_on_time));
-        for i = 1:numel(trigger_on_time)
-            MC_mat(:,:,i) = MC(chs, ...
-                find(trigger_on_time(i)==AP_TIME)-199 : ...
-                find(trigger_on_time(i)==AP_TIME)+400);
-            ME_mat(:,:,i) = ME(chs, ...
-                find(trigger_on_time(i)==AP_TIME)-199 : ...
-                find(trigger_on_time(i)==AP_TIME)+400);
-        end
-        
-        if rec_blc
-            MC_mat = MC_mat - repmat(mean(MC_mat(:,100:199,:),2), 1, 600, 1);
-            ME_mat = ME_mat - repmat(mean(ME_mat(:,100:199,:),2), 1, 600, 1);
-        end
-
     end
 end
+
+% if rec_AP
+% 
+%     ME = nan(chs_no, size(AP,2));
+%     for i = chs; ME(i,:) = computepower(AP(i,:), 30000, 250); end
+%     ME = resample(ME', 1, 30); ME = ME'; ME = ME(:,1:numel(AP_sync));
+% 
+%     MR = AP < mean(AP,2) - (2.5*std(AP,[],2));
+%     for i = chs; MR_times{i} = ceil(find(MR(i,:)) ./ 30); end
+%     MR = zeros(chs_no, numel(AP_sync));
+%     for i = chs; MR(i,MR_times{i}) = 1; end
+%     MC = rasterconvolution(MR, defkernel('psp', 0.02, out_fs), out_fs);
+% 
+%     if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
+%         MC_mat = nan(chs_no, 600, numel(trigger_on_time));
+%         ME_mat = nan(chs_no, 600, numel(trigger_on_time));
+%         for i = 1:numel(trigger_on_time)
+%             MC_mat(:,:,i) = MC(chs, ...
+%                 find(trigger_on_time(i)==AP_TIME)-199 : ...
+%                 find(trigger_on_time(i)==AP_TIME)+400);
+%             ME_mat(:,:,i) = ME(chs, ...
+%                 find(trigger_on_time(i)==AP_TIME)-199 : ...
+%                 find(trigger_on_time(i)==AP_TIME)+400);
+%         end
+%         
+%         if rec_blc
+%             MC_mat = MC_mat - repmat(mean(MC_mat(:,100:199,:),2), 1, 600, 1);
+%             ME_mat = ME_mat - repmat(mean(ME_mat(:,100:199,:),2), 1, 600, 1);
+%         end
+% 
+%     end
+% end
 
 toc
 disp('STEP 7 COMPLETE: data preprocessed.');
