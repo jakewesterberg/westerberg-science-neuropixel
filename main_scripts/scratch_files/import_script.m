@@ -22,12 +22,12 @@ np_dir = 'D:\data_transfer\';
 rec_dir = []; % leave blank
 
 % specify task
-rec_task = 'EVP'; %'EVP' 'ROM', 'DOT';
+rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
 
 % or... 2) the recording data header info
 rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
 rec_subj = []; % leave empty if use most recent. ex. 'B52';
-rec_date = [];%['2021-11-09']; % leave empty if use most recent. ex. '2021-11-09';
+rec_date = ['2021-11-09']; % leave empty if use most recent. ex. '2021-11-09';
 rec_node = []; % leave empty if only one rec node
 adc_node = []; % leave empty if same as rec
 rec_nitt = []; % leave empty if one task file or want most recent file
@@ -391,7 +391,7 @@ if rec_LF
     % issue here...
     LF_sync_lag = nan(1,numel(LF_sync));
     for i = 100 : 100 : numel(LF_sync) - 5500
-        [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+4999), LF_sync(i:i+4999), 250);
+        [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+4999), LF_sync(i:i+4999), 10000);
         [t_max_1, t_ind_1] = max(t_rvl_1);
         LF_sync_lag(i-99:i+99) = t_lag_1(t_ind_1);
         clear -regexp ^t_
@@ -399,7 +399,8 @@ if rec_LF
     LF_sync_lag(isnan(LF_sync_lag)) = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
 
     % adjust times
-    LF_time = LF_time + LF_sync_lag;
+    %%%%%%%%%%% CONSIDER CHANGING THIS TO INDEX SHIFTS...
+    LF_time = LF_time + LF_sync_lag/LF_fs;
 
     % common average reference?
     if rec_car; LF = comaveref(LF); end
@@ -488,7 +489,7 @@ if rec_AP
     AP_sync_lag(isnan(AP_sync_lag)) = AP_sync_lag(find(~isnan(AP_sync_lag),1,'last'));
 
     % adjust times
-    AP_time = AP_time + AP_sync_lag;
+    AP_time = AP_time + AP_sync_lag./AP_fs;
 
     % common average reference?
     if rec_car; AP = comaveref(AP); end
