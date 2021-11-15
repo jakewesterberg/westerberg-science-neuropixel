@@ -388,6 +388,7 @@ if rec_LF
 
     % compute xcorr - note that the lag seems to change over the course of a
     % session. need to accomodate by making adjustments in bins...
+    % issue here...
     LF_sync_lag = nan(1,numel(LF_sync));
     for i = 100 : 100 : numel(LF_sync) - 5500
         [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+4999), LF_sync(i:i+4999), 250);
