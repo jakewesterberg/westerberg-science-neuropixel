@@ -223,10 +223,10 @@ AD_fs = out_fs;
 
 % find photo triggers on and off
 trigger_on_ind = triggerdetect(AD(AD_map.TRIG, :));
-[~, trigger_on_ind] = binsum(trigger_on_ind, time2samp(round(1.5*frame_time),AD_fs), 'pre');
+[~, trigger_on_ind] = binsum(trigger_on_ind, time2samp(round(2*frame_time),AD_fs), 'pre');
 trigger_on_stamps = AD_stamps(trigger_on_ind);
 trigger_off_ind = triggerdetect(AD(AD_map.TRIG, :));
-[~, trigger_off_ind] = binsum(trigger_off_ind, time2samp(round(1.5*frame_time),AD_fs), 'post');
+[~, trigger_off_ind] = binsum(trigger_off_ind, time2samp(round(2*frame_time),AD_fs), 'post');
 trigger_off_stamps = AD_stamps(trigger_off_ind);
 
 % convert ind to times
@@ -501,7 +501,7 @@ end
 if rec_LF
     LF_mat = nan(chs_no, out_fs*2.5, numel(align_points));
     for i = 1:numel(align_points)
-        [t_dif_1, t_ind_1] = min(abs(align_points(i)-LF.timestamps));
+        [t_dif_1, t_ind_1] = min(abs(align_points(i)-LF.Timestamps));
         if t_dif_1 > LF.Header.sample_rate
             warning('DETECTED TRIGGER OUTSIDE RANGE OF LF DATA TIMESTAMPS!!!')
         end
