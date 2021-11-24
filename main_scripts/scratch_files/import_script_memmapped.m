@@ -379,23 +379,23 @@ LF_stamps = double(LF_stamps);
 LF_sync = LF_sync .* LF_sync_btvc;
 
 [t_val_1, t_val_2] = rat(out_fs/LF_fs);
-LF_stamps = resample(LF_stamps, t_val_1, t_val_2);
 LF_time = resample(LF_time, t_val_1, t_val_2);
 LF_sync = resample(LF_sync, t_val_1, t_val_2);
+LF_stamps = resample(LF_stamps, t_val_1, t_val_2);
 LF_fs = out_fs;
 
 % compute xcorr - note that the lag seems to change over the course of a
 % session. need to accomodate by making adjustments in bins...
 % issue here...
 LF_sync_lag = nan(2,numel(LF_sync));
-for i = out_fs/10 : out_fs/10 : numel(LF_sync) - out_fs*2
+for i = out_fs/10 : out_fs/10 : numel(LF_sync) - out_fs*2 % - (out_fs/10)
     [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+out_fs*2), ...
         LF_sync(i:i+out_fs*2), out_fs);
     [t_max_1, t_ind_1] = max(t_rvl_1);
     LF_sync_lag(1,i-(out_fs/10-1):i+(out_fs/10-1),1) = t_lag_1(t_ind_1);
     clear -regexp ^t_
 end
-for i = numel(LF_sync) : -1*(out_fs/10) : 1 + out_fs*2
+for i = numel(LF_sync) - (out_fs/10) : -1*(out_fs/10) : 1 + out_fs*2 % + (out_fs/10)
     [t_rvl_1, t_lag_1] = xcorr(AD_sync(i-out_fs*2:i), ...
         LF_sync(i-out_fs*2:i), out_fs);
     [t_max_1, t_ind_1] = max(t_rvl_1);
@@ -403,10 +403,10 @@ for i = numel(LF_sync) : -1*(out_fs/10) : 1 + out_fs*2
     clear -regexp ^t_
 end
 LF_sync_lag = round(mean(LF_sync_lag, 1, 'omitnan'));
-LF_sync_lag = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
+%LF_sync_lag = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
 
 % adjust times
-LF_time = LF_time + LF_sync_lag/LF_fs;
+LF_time = LF_time + LF_sync_lag./LF_fs;
 LF_stamps = LF_stamps' + LF_sync_lag;
 
 toc
@@ -499,23 +499,22 @@ end
 
 % pulls out 2.5 s matrices with 1 s prearray to 1.5 s postarray
 if rec_LF
-    LF_mat = nan(chs_no, out_fs*2.5, numel(align_points));
+    LF_mat = nan(chs_no, 2501, numel(align_points));
     for i = 1:numel(align_points)
-        [t_dif_1, t_ind_1] = min(abs(align_points(i)-LF.Timestamps));
-        if t_dif_1 > LF.Header.sample_rate
-            warning('DETECTED TRIGGER OUTSIDE RANGE OF LF DATA TIMESTAMPS!!!')
-        end
-        t_mat_1 = LF.Data.Data.mapped(chs, t_ind_1-(LF.Header.sample_rate) : t_ind_1+(LF.Header.sample_rate*1.5));
-        t_mat_1 = t_mat_1 .* LF_btvc;
-        
-        [t_val_1, t_val_2] = rat(1000/AP_fs);
-        t_mat_1 = resample(t_mat_1, t_val_1, t_val_2); t_mat_1 = t_mat_1';
 
-        LF_mat(:,:,i) = t_mat_1;
+        [t_dif_1, t_ind_1] = min(abs(LF.Timestamps - LF_stamps(find(trigger_on_stamps(i) == AD_stamps,1)-LF_sync_lag(i))));
+        t_mat_1 = LF.Data.Data.mapped(chs, t_ind_1-(LF.Header.sample_rate) : t_ind_1+(LF.Header.sample_rate*1.5));
+        t_mat_1 = double(t_mat_1) .* LF_btvc;
+        t_mat_1 = comaveref(t_mat_1');
+        
+        [t_val_1, t_val_2] = rat(1000/LF.Header.sample_rate);
+        t_mat_1 = resample(t_mat_1, t_val_1, t_val_2);
+
+        LF_mat(:,:,i) = t_mat_1';
         
         clear -regexp ^t_
     end
-    if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,900:1000,:),2), 1, 600, 1); end
+    if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,900:1000,:),2), 1, 2501, 1); end
 end
 
 toc
