@@ -1,4 +1,4 @@
-%%% import_script_memmapped.m
+%%% import_script.m
 %%% Jacob A. Westerberg
 %%% Vanderbilt University
 %%% Created 21-11-07
@@ -489,7 +489,7 @@ toc
 disp('STEP 6.3 COMPLETE: loaded AP data.');
 %}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% PULL MEMMAPPED DATA
+%% ONLINE ANALYSIS
 tic
 
 % what is the 3rd dim alignment point?
@@ -505,30 +505,29 @@ if rec_LF
         if t_dif_1 > LF.Header.sample_rate
             warning('DETECTED TRIGGER OUTSIDE RANGE OF LF DATA TIMESTAMPS!!!')
         end
-        t_mat_1 = LF.Data.Data.mapped(chs, t_ind_1-(LF.Header.sample_rate) : t_ind_1+(LF.Header.sample_rate*1.5));
-        t_mat_1 = t_mat_1 .* LF_btvc;
-        
-        [t_val_1, t_val_2] = rat(1000/AP_fs);
-        t_mat_1 = resample(t_mat_1, t_val_1, t_val_2); t_mat_1 = t_mat_1';
-
-        LF_mat(:,:,i) = t_mat_1;
-        
-        clear -regexp ^t_
+        t_mat_1 = LF.Data.Data.mapped(chs, t_ind_1-(LF.Header.sample_rate) : t_ind_1+(LF.Header.sample_rate))
+        LF_mat(:,:,i) = LF.Data.Data.mapped(chs, t_ind_1-199 : t_ind_1+400);
     end
-    if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,900:1000,:),2), 1, 600, 1); end
+    if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,100:199,:),2), 1, 600, 1); end
 end
 
 toc
 disp('STEP 7 COMPLETE: loaded data matrices.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ONLINE ANALYSIS
-%{
 tic
 
 if rec_LF
 
     % compute evp task matrices
     if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
+        LF_mat = nan(chs_no, 600, numel(trigger_on_time));
+        for i = 1:numel(trigger_on_time)
+            [~, t_ind_1] = min(abs(trigger_on_time(i)-LF_time));
+            LF_mat(:,:,i) = LF(chs, t_ind_1-199 : t_ind_1+400);
+        end
+        if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,100:199,:),2), 1, 600, 1); end
+
         if gen_plot
             figure; subplot(1,4,1);
             imagesc(-99:200, 3.83:-.01:0, smoothinspace(mean(LF_mat(:,101:400,:),3), 1, 'med'))
@@ -576,7 +575,6 @@ end
 
 toc
 disp('STEP 8 COMPLETE: data preprocessed.');
-%}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
