@@ -233,7 +233,6 @@ trigger_off_stamps = AD_stamps(trigger_off_ind);
 trigger_on_time = AD_time(trigger_on_ind);
 trigger_off_time = AD_time(trigger_off_ind);
 
-clear AD
 clear -regexp ^t_
 
 toc
@@ -386,28 +385,33 @@ LF_fs = out_fs;
 
 % compute xcorr - note that the lag seems to change over the course of a
 % session. need to accomodate by making adjustments in bins...
-% issue here...
-LF_sync_lag = nan(2,numel(LF_sync));
-for i = out_fs/10 : out_fs/10 : numel(LF_sync) - out_fs*2 % - (out_fs/10)
-    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+out_fs*2), ...
-        LF_sync(i:i+out_fs*2), out_fs);
+% issue here...the late triggers are significantly offset. Might need to
+% readjust the windows dynamically so that they dont fall so far out of
+% alignment on long recordings that the simulatneous data are not present
+% in the windows. I think the offset is not be applied correctly in the
+% matrix building...error may not be here.
+
+LF_sync_lag = nan(1,numel(LF_sync));
+for i = out_fs/10 : out_fs/10 : numel(LF_sync) - out_fs*10 % - (out_fs/10)
+    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+out_fs*10), ...
+        LF_sync(i:i+out_fs*10));
     [t_max_1, t_ind_1] = max(t_rvl_1);
     LF_sync_lag(1,i-(out_fs/10-1):i+(out_fs/10-1),1) = t_lag_1(t_ind_1);
     clear -regexp ^t_
 end
-for i = numel(LF_sync) - (out_fs/10) : -1*(out_fs/10) : 1 + out_fs*2 % + (out_fs/10)
-    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i-out_fs*2:i), ...
-        LF_sync(i-out_fs*2:i), out_fs);
-    [t_max_1, t_ind_1] = max(t_rvl_1);
-    LF_sync_lag(2,i-(out_fs/10-1):i+(out_fs/10-1)) = t_lag_1(t_ind_1);
-    clear -regexp ^t_
-end
-LF_sync_lag = round(mean(LF_sync_lag, 1, 'omitnan'));
-%LF_sync_lag = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
+%for i = numel(LF_sync) - (out_fs/10) : -1*(out_fs/10) : 1 + out_fs*2 % + (out_fs/10)
+%    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i-out_fs*2:i), ...
+%        LF_sync(i-out_fs*2:i), out_fs*10);
+%    [t_max_1, t_ind_1] = max(t_rvl_1);
+%    LF_sync_lag(2,i-(out_fs/10-1):i+(out_fs/10-1)) = t_lag_1(t_ind_1);
+%    clear -regexp ^t_
+%end
+%LF_sync_lag = round(mean(LF_sync_lag, 1, 'omitnan'));
+LF_sync_lag(isnan(LF_sync_lag)) = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
 
 % adjust times
 LF_time = LF_time + LF_sync_lag./LF_fs;
-LF_stamps = LF_stamps' + LF_sync_lag;
+LF_stamps = LF_stamps;
 
 toc
 disp('STEP 6.2 COMPLETE: loaded LF data.');
