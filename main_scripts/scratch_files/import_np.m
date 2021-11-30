@@ -5,11 +5,6 @@ function [EVT, AD_mat, LF_mat, AP_mat] = import_np()
 %%% Vanderbilt University
 %%% Created 21-11-30
 
-% start fresh
-clear; clc;
-fclose all; % make sure fids are closed
-
-disp('STEP 1 COMPLETE: workspace prepared.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DEFINE BASIC INFO
 tic
@@ -72,7 +67,7 @@ AD_map.RE_P = 7;
 AD_map.SYNC = 8;
 
 toc
-disp('STEP 2 COMPLETE: basic info loaded.');
+disp('STEP 1 COMPLETE: basic info loaded.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FILL IN SOME BLANKS
 tic
@@ -148,7 +143,7 @@ if isempty(adc_node); adc_node_dir = rec_node_dir;
 else; adc_node_dir = [rec_dir 'Record Node ' num2str(rec_node)  filesep]; end
 
 toc
-disp('STEP 3 COMPLETE: inferred some information.');
+disp('STEP 2 COMPLETE: inferred some information.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% LOAD EVT/AI/DI DATA
 tic
@@ -223,7 +218,7 @@ trigger_off_time = AD_time(trigger_off_ind);
 clear -regexp ^t_
 
 toc
-disp('STEP 4 COMPLETE: loaded AI data.');
+disp('STEP 3 COMPLETE: loaded AI data.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EVENT CODES
 tic
@@ -296,7 +291,7 @@ end
 clear -regexp ^t_
 
 toc
-disp('STEP 5 COMPLETE: loaded EVT/DI data.');
+disp('STEP 4 COMPLETE: loaded EVT/DI data.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% LOAD DATA PREP
 tic
@@ -312,7 +307,7 @@ imec_dir = find_dir([rec_node_dir 'continuous' filesep], 'Neuropix-PXI');
 np_no = numel(imec_dir)/2;
 
 toc
-disp('STEP 6.1 COMPLETE: data loading prep finished.');
+disp('STEP 5 COMPLETE: data loading prep finished.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% LOAD LF DATA?
 tic
@@ -394,7 +389,7 @@ LF_time = LF_time + (LF_sync_lag./LF_fs);
 
 clear -regexp ^t_
 toc
-disp('STEP 6.2 COMPLETE: loaded LF data.');
+disp('STEP 6 COMPLETE: loaded LF data.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% LOAD AP DATA?
 tic
@@ -471,7 +466,7 @@ AP_time = AP_time + (AP_sync_lag./AP_fs);
 clear -regexp ^t_
 clear recent_lag
 toc
-disp('STEP 6.3 COMPLETE: loaded AP data.');
+disp('STEP 7 COMPLETE: loaded AP data.');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% PULL MEMMAPPED DATA
 tic
@@ -572,7 +567,7 @@ if rec_AP
 end
 
 toc
-disp('STEP 7 COMPLETE: loaded data matrices.');
+disp('STEP 8 COMPLETE: loaded data matrices.');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ONLINE ANALYSIS
@@ -629,7 +624,7 @@ if rec_LF
 end
 
 toc
-disp('STEP 8 COMPLETE: data preprocessed.');
+disp('STEP 9 COMPLETE: data preprocessed.');
 %}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
