@@ -43,16 +43,13 @@ rec_probe = 1;
 % evt code location? - add check for DI first then use ML bhv as backup
 evt_form = 'ML'; % 'DI'
 
-% desired downsampled fs
-out_fs = 500;
-
 % create plot along the way? (LF derived plots currently take the med of
 % a 3 channel bin to avoid broken channels - need to create better method
 % for this in the future)
 gen_plot = true;
 
 % which data?
-rec_AP = false;
+rec_AP = true;
 rec_LF = true;
 
 % common ave ref?
@@ -209,24 +206,15 @@ AD_time = (1:numel(AD_sync))./AD_fs;
 AD_sync = AD_sync .* AD_btvc;
 
 AD_stamps = readNPY([daq_dir filesep 'timestamps.npy']);
-AD_stamps_synced = readNPY([daq_dir filesep 'synchronized_timestamps.npy']);
 AD_stamps = double(AD_stamps);
-AD_stamps_synced = double(AD_stamps_synced);
-
-[t_val_1, t_val_2] = rat(out_fs/AD_fs);
-AD = resample(AD', t_val_1, t_val_2); AD = AD';
-AD_stamps = resample(AD_stamps, t_val_1, t_val_2);
-AD_stamps_synced = resample(AD_stamps_synced, t_val_1, t_val_2);
-AD_time = resample(AD_time, t_val_1, t_val_2);
-AD_sync = resample(AD_sync, t_val_1, t_val_2);
-AD_fs = out_fs;
+AD_stamps = AD_stamps - AD_stamps(1);
 
 % find photo triggers on and off
 trigger_on_ind = triggerdetect(AD(AD_map.TRIG, :));
-[~, trigger_on_ind] = binsum(trigger_on_ind, time2samp(round(2*frame_time),AD_fs), 'pre');
+[~, trigger_on_ind] = binsum(trigger_on_ind, time2samp(round(2*frame_time), AD_fs), 'pre');
 trigger_on_stamps = AD_stamps(trigger_on_ind);
 trigger_off_ind = triggerdetect(AD(AD_map.TRIG, :));
-[~, trigger_off_ind] = binsum(trigger_off_ind, time2samp(round(2*frame_time),AD_fs), 'post');
+[~, trigger_off_ind] = binsum(trigger_off_ind, time2samp(round(2*frame_time), AD_fs), 'post');
 trigger_off_stamps = AD_stamps(trigger_off_ind);
 
 % convert ind to times
@@ -362,8 +350,8 @@ LF_fs = extractfs(rec_info, LF_proc);
 % load in LF sync
 fseek(LF_fid, 384*2, 'bof');
 LF_sync = fread(LF_fid, [1 Inf], 'int16', 384*2,  'l');
-LF_time = (1:numel(LF_sync))./LF_fs;
 fseek(LF_fid, 0, 'bof');
+LF_time = (1:numel(LF_sync))./LF_fs;
 
 LF = load_open_ephys_binary(rec_inff, 'continuous', LF_id_cont, 'mmap');
 
@@ -373,54 +361,43 @@ fclose all; clear LF_fid
 % get the LF timestamps
 LF_stamps = readNPY([imec_dir{rec_probe*2} filesep 'timestamps.npy']);
 LF_stamps = double(LF_stamps);
+LF_stamps = LF_stamps - LF_stamps(1);
 
 % convert signals to proper units
 LF_sync = LF_sync .* LF_sync_btvc;
 
-[t_val_1, t_val_2] = rat(out_fs/LF_fs);
-LF_time = resample(LF_time, t_val_1, t_val_2);
-LF_sync = resample(LF_sync, t_val_1, t_val_2);
-LF_stamps = resample(LF_stamps, t_val_1, t_val_2);
-LF_fs = out_fs;
+% compute xcorr
+[t_val_1, t_val_2] = rat(LF_fs/AD_fs);
+ds_sync = resample(AD_sync, t_val_1, t_val_2);
+LF_sync_lag = nan(1,numel(LF_sync));
+recent_lag = 0;
+for i = LF_fs/10 : LF_fs/10 : numel(LF_sync) - LF_fs*10
 
-% compute xcorr - note that the lag seems to change over the course of a
-% session. need to accomodate by making adjustments in bins...
-% issue here...the late triggers are significantly offset. Might need to
-% readjust the windows dynamically so that they dont fall so far out of
-% alignment on long recordings that the simulatneous data are not present
-% in the windows.
-AD_sync_norm = (AD_sync - min(AD_sync)) ./ (max(AD_sync) - min(AD_sync));
-LF_sync_norm = (LF_sync - min(AD_sync)) ./ (max(AD_sync) - min(AD_sync));
+    if i-recent_lag < 1; t_ind_1 = 1; t_ind_2 = t_ind_1+LF_fs*10;
+    elseif (i-recent_lag)+LF_fs*10 > numel(ds_sync); t_ind_1 = i+recent_lag; t_ind_2 = numel(ds_sync);
+    else; t_ind_1 = i+recent_lag; t_ind_2 = t_ind_1+LF_fs*10; end
 
-LF_sync_lag = nan(2,numel(LF_sync));
-for i = out_fs/10 : out_fs/10 : numel(LF_sync) - out_fs*10 % - (out_fs/10)
-    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+out_fs*10), ...
-        LF_sync(i:i+out_fs*10));
-    [t_max_1, t_ind_1] = max(t_rvl_1);
-    LF_sync_lag(1,i-(out_fs/10-1):i+(out_fs/10-1),1) = t_lag_1(t_ind_1);
+    [t_rvl_1, t_lag_1] = xcorr(ds_sync(t_ind_1:t_ind_2), LF_sync(i:i+LF_fs*10), LF_fs/2);
+    [t_max_1, t_ind_3] = max(abs(t_rvl_1));
+
+    if (t_lag_1(t_ind_3) + recent_lag) ~= recent_lag
+        recent_lag = t_lag_1(t_ind_3) + recent_lag;
+    end
+
+    LF_sync_lag(1,i-(LF_fs/10-1):i+(LF_fs/10-1),1) = recent_lag;
+
     clear -regexp ^t_
 end
-%for i = numel(LF_sync) - (out_fs/10) : -1*(out_fs/10) : 1 + out_fs*2 % + (out_fs/10)
-%    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i-out_fs*2:i), ...
-%        LF_sync(i-out_fs*2:i), out_fs*10);
-%    [t_max_1, t_ind_1] = max(t_rvl_1);
-%    LF_sync_lag(2,i-(out_fs/10-1):i+(out_fs/10-1)) = t_lag_1(t_ind_1);
-%    clear -regexp ^t_
-%end
-%LF_sync_lag = round(mean(LF_sync_lag, 1, 'omitnan'));
 LF_sync_lag(isnan(LF_sync_lag)) = LF_sync_lag(find(~isnan(LF_sync_lag),1,'last'));
 
 % adjust times
-LF_time = LF_time + LF_sync_lag./LF_fs;
-LF_stamps = LF_stamps' + LF_sync_lag;
+LF_time = LF_time + (LF_sync_lag./LF_fs);
 
+clear -regexp ^t_
 toc
 disp('STEP 6.2 COMPLETE: loaded LF data.');
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% LOAD AP DATA?
-%{
 tic
 
 % define where the LF data is
@@ -450,80 +427,154 @@ AP_sync_btvc = extractbtvc(rec_info, 'AP_SYNC');
 
 % AP units, fs
 AP_units = extractunits(rec_info, 'AP1');
+AP_fs = extractfs(rec_info, AP_proc);
 
 % load in AP data
-AP = fread(AP_fid, AP_size, 'int16');
-AP_sync = AP(385, :);
-AP_time = (1:numel(AP_sync))/AP_fs;
-AP = AP(1:384, :);
+fseek(AP_fid, 384*2, 'bof');
+AP_sync = fread(AP_fid, [1 Inf], 'int16', 384*2,  'l');
+fseek(AP_fid, 0, 'bof');
+AP_time = (1:numel(AP_sync))./AP_fs;
+
+AP = load_open_ephys_binary(rec_inff, 'continuous', AP_id_cont, 'mmap');
 
 % close file
 fclose all; clear AP_fid
 
 % convert signals to proper units
-AP = AP .* AP_btvc;
 AP_sync = AP_sync .* AP_sync_btvc;
-
-%%%%%%%%%%%%%%%%%%% BE AWARE WE NEED TO EXTRACT THE USEFUL SIGNAL HERE
-%%%%%%%%%%%%%%%%%%% BEFORE DOWNSAMPLING!!!!!!!!
-
-% downsample LF data
-[t_val_1, t_val_2] = rat(out_fs/AP_fs);
-AP = resample(AP', t_val_1, t_val_2); AP = AP';
-AP_stamps = resample(AP_stamps, t_val_1, t_val_2);
-AP_stamps_synced = resample(AP_stamps_synced, t_val_1, t_val_2);
-AP_time = resample(AP_time, t_val_1, t_val_2);
-AP_sync = resample(AP_sync, t_val_1, t_val_2);
-AP_fs = out_fs;
 
 % compute xcorr - note that the lag seems to change over the course of a
 % session. need to accomodate by making adjustments in bins...
 AP_sync_lag = nan(1,numel(AP_sync));
-for i = 100 : 100 : numel(AP_sync) - 5500
-    [t_rvl_1, t_lag_1] = xcorr(AD_sync(i:i+4999), AP_sync(i:i+4999), 250);
-    [t_max_1, t_ind_1] = max(t_rvl_1);
-    AP_sync_lag(i-99:i+99) = t_lag_1(t_ind_1);
+recent_lag = 0;
+for i = AP_fs/10 : AP_fs/10 : numel(AP_sync) - AP_fs*10
+
+    if i-recent_lag < 1; t_ind_1 = 1; t_ind_2 = t_ind_1+AP_fs*10;
+    elseif (i-recent_lag)+AP_fs*10 > numel(AD_sync); t_ind_1 = i+recent_lag; t_ind_2 = numel(AD_sync);
+    else; t_ind_1 = i+recent_lag; t_ind_2 = t_ind_1+AP_fs*10; end
+
+    [t_rvl_1, t_lag_1] = xcorr(AD_sync(t_ind_1:t_ind_2), AP_sync(i:i+AP_fs*10), AP_fs/2);
+    [t_max_1, t_ind_3] = max(abs(t_rvl_1));
+
+    if (t_lag_1(t_ind_3) + recent_lag) ~= recent_lag
+        recent_lag = t_lag_1(t_ind_3) + recent_lag;
+    end
+
+    AP_sync_lag(1,i-(AP_fs/10-1):i+(AP_fs/10-1),1) = recent_lag;
+
     clear -regexp ^t_
 end
 AP_sync_lag(isnan(AP_sync_lag)) = AP_sync_lag(find(~isnan(AP_sync_lag),1,'last'));
 
 % adjust times
-AP_time = AP_time + AP_sync_lag./AP_fs;
+AP_time = AP_time + (AP_sync_lag./AP_fs);
 
+clear -regexp ^t_
+clear recent_lag
 toc
 disp('STEP 6.3 COMPLETE: loaded AP data.');
-%}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% PULL MEMMAPPED DATA
 tic
 
 % what is the 3rd dim alignment point?
-if strcmp('EVP', rec_task) | strcmp('ROM', rec_task)
-    align_points = trigger_on_stamps;
+switch rec_task
+    case {'EVP', 'ROM'}
+        align_points = trigger_on_time;
 end
+
+AD_mat = nan(8, 2501, numel(align_points));
+parfor i = 1:numel(align_points)
+    [~, t_ind_2] = min(abs(align_points(i) - AD_time));
+    t_mat_1 = AD(:, t_ind_2-AD_fs : t_ind_2+(AD_fs*1.5));
+    t_mat_1 = t_mat_1 - repmat(median(t_mat_1, 2), 1, size(t_mat_1, 2));
+    [t_val_1, t_val_2] = rat(1000/AD_fs);
+    t_mat_1 = resample(t_mat_1', t_val_1, t_val_2);
+    AD_mat(:,:,i) = t_mat_1';
+end
+if rec_blc; AD_mat = AD_mat - repmat(mean(AD_mat(:,900:1000,:),2), 1, 2501, 1); end
 
 % pulls out 2.5 s matrices with 1 s prearray to 1.5 s postarray
 if rec_LF
+    %align_mat = nan(4, 1251, numel(align_points));
     LF_mat = nan(chs_no, 2501, numel(align_points));
-    for i = 1:numel(align_points)
+    parfor i = 1:numel(align_points)
 
-        [t_dif_1, t_ind_1] = min(abs(LF.Timestamps - LF_stamps(find(trigger_on_stamps(i) == AD_stamps,1)-LF_sync_lag(i))));
-        t_mat_1 = LF.Data.Data.mapped(chs, t_ind_1-(LF.Header.sample_rate) : t_ind_1+(LF.Header.sample_rate*1.5));
+        %[~, t_ind_3] = min(abs(align_points(i) - AD_time));
+        %align_mat(1,:,i) = AD(AD_map.TRIG, t_ind_3-500:t_ind_3+750);
+        %align_mat(2,:,i) = AD_sync(t_ind_3-500:t_ind_3+750);
+        %align_mat(3,:,i) = LF_sync(t_ind_3-LF_sync_lag(t_ind_3)-500:t_ind_3-LF_sync_lag(t_ind_3)+750);
+
+        [~, t_ind_2] = min(abs(align_points(i) - LF_time));
+        %t_vec_1 = LF.Data.Data.mapped(385, t_ind_2-2500:t_ind_2+3750);
+        %t_vec_1 = resample(double(t_vec_1), 1, 5);
+        %align_mat(4,:,i) = t_vec_1(1:1251);
+
+        %[t_dif_1, t_ind_2] = min(abs((LF.Timestamps-LF.Timestamps(1)) - LF_stamps(t_ind_1-(LF_sync_lag(t_ind_1)*(LF.Header.sample_rate/out_fs)))));
+        %[~, t_ind_2] = min(abs(LF_time_full - align_points(i)));
+        t_mat_1 = LF.Data.Data.mapped(chs, t_ind_2-(LF.Header.sample_rate) : t_ind_2+(LF.Header.sample_rate*1.5));
         t_mat_1 = double(t_mat_1) .* LF_btvc;
+        t_mat_1 = bandpassfilter(t_mat_1', LF.Header.sample_rate, [1 150]);
         t_mat_1 = comaveref(t_mat_1');
-        
+        t_mat_1 = t_mat_1 - repmat(median(t_mat_1, 2), 1, size(t_mat_1, 2));
+
         [t_val_1, t_val_2] = rat(1000/LF.Header.sample_rate);
-        t_mat_1 = resample(t_mat_1, t_val_1, t_val_2);
+        t_mat_1 = resample(t_mat_1', t_val_1, t_val_2);
 
         LF_mat(:,:,i) = t_mat_1';
-        
-        clear -regexp ^t_
     end
     if rec_blc; LF_mat = LF_mat - repmat(mean(LF_mat(:,900:1000,:),2), 1, 2501, 1); end
+
+    figure; subplot(1,2,1);
+    imagesc(-99:200, 3.83:-.01:0, smoothinspace(mean(LF_mat(:,901:1200,:),3), 1, 'med'))
+    set(gca, 'ydir', 'reverse', 'linewidth', 2, 'fontsize', 12)
+    title('Stimulus-evoked LFP')
+    xlabel('Time from flash (ms)'); ylabel('Depth from top of probe (mm)')
+    colorbar
+
+    subplot(1,2,2);
+    CSD_mat = computecsd(smoothinspace(mean(LF_mat(:,901:1200,:),3), 1, 'med'));
+    imagesc(-99:200, 3.82:-.01:0, smooth2d(CSD_mat(2:end-1,:)))
+    colormap(tej)
+    set(gca, 'ydir', 'reverse', 'linewidth', 2, 'fontsize', 12)
+    title('Stimulus-evoked CSD')
+    xlabel('Time from flash (ms)'); ylabel('Depth from top of probe (mm)')
+    colorbar
+
+end
+
+if rec_AP
+
+    AP_mat = nan(chs_no, 2501, numel(align_points));
+    parfor i = 1:numel(align_points)
+
+        [~, t_ind_2] = min(abs(align_points(i) - AP_time));
+        t_mat_1 = AP.Data.Data.mapped(chs, t_ind_2-(AP.Header.sample_rate) : t_ind_2+(AP.Header.sample_rate*1.5));
+        t_mat_1 = double(t_mat_1) .* AP_btvc;
+        t_mat_1 = comaveref(t_mat_1);
+        t_mat_1 = t_mat_1 - repmat(median(t_mat_1, 2), 1, size(t_mat_1, 2));
+        t_mat_1 = bandpassfilter(t_mat_1', AP.Header.sample_rate, [400 6000]);
+        t_mat_1 = computepower(t_mat_1, AP.Header.sample_rate, 200);
+
+        [t_val_1, t_val_2] = rat(1000/AP.Header.sample_rate);
+        t_mat_1 = resample(t_mat_1, t_val_1, t_val_2);
+
+        AP_mat(:,:,i) = t_mat_1';
+    end
+    if rec_blc; AP_mat = AP_mat - repmat(mean(AP_mat(:,900:1000,:),2), 1, 2501, 1); end
+
+    figure;
+    imagesc(-99:200, 3.83:-.01:0, smoothinspace(mean(AP_mat(:,901:1200,:),3), 1, 'med'))
+    set(gca, 'ydir', 'reverse', 'linewidth', 2, 'fontsize', 12)
+    title('Stimulus-evoked MUAe')
+    xlabel('Time from flash (ms)'); ylabel('Depth from top of probe (mm)')
+    colorbar
+
 end
 
 toc
 disp('STEP 7 COMPLETE: loaded data matrices.');
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ONLINE ANALYSIS
 %{

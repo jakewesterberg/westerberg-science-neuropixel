@@ -16,7 +16,7 @@ disp('STEP 1 COMPLETE: workspace prepared.');
 tic
 
 % where is the np data located?
-np_dir = 'D:\data_transfer\';
+np_dir = '/Users/jakew/Data/NP_test/';
 
 % specify... 1) the exact dir
 rec_dir = []; % leave blank
@@ -27,7 +27,7 @@ rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
 % or... 2) the recording data header info
 rec_ssys = []; % leave empty to autodetect. ex. 'ML'; % 'TEMPO';
 rec_subj = []; % leave empty if use most recent. ex. 'B52';
-rec_date = ['2021-11-06']; % leave empty if use most recent. ex. '2021-11-09';
+rec_date = []; % leave empty if use most recent. ex. '2021-11-09';
 rec_node = []; % leave empty if only one rec node
 adc_node = []; % leave empty if same as rec
 rec_nitt = []; % leave empty if one task file or want most recent file
@@ -44,7 +44,7 @@ rec_probe = 1;
 evt_form = 'ML'; % 'DI'
 
 % desired downsampled fs
-out_fs = 1000;
+out_fs = 500;
 
 % create plot along the way? (LF derived plots currently take the med of
 % a 3 channel bin to avoid broken channels - need to create better method
@@ -221,10 +221,10 @@ AD_fs = out_fs;
 
 % find photo triggers on and off
 trigger_on_ind = triggerdetect(AD(AD_map.TRIG, :));
-[~, trigger_on_ind] = binsum(trigger_on_ind, time2samp(round(1.5*frame_time),AD_fs), 'pre');
+[~, trigger_on_ind] = binsum(trigger_on_ind, time2samp(round(2*frame_time),AD_fs), 'pre');
 trigger_on_stamps = AD_stamps(trigger_on_ind);
 trigger_off_ind = triggerdetect(AD(AD_map.TRIG, :));
-[~, trigger_off_ind] = binsum(trigger_off_ind, time2samp(round(1.5*frame_time),AD_fs), 'post');
+[~, trigger_off_ind] = binsum(trigger_off_ind, time2samp(round(2*frame_time),AD_fs), 'post');
 trigger_off_stamps = AD_stamps(trigger_off_ind);
 
 % convert ind to times
@@ -317,7 +317,7 @@ rec_inff = [rec_node_dir 'structure.oebin'];
 rec_info = fileread(rec_inff);
 
 % find imex devices
-imec_dir = find_dir([rec_node_dir 'continuous\'], 'Neuropix-PXI');
+imec_dir = find_dir([rec_node_dir 'continuous' filesep], 'Neuropix-PXI');
 
 % determine number of neuropixels probes
 np_no = numel(imec_dir)/2;
@@ -331,7 +331,7 @@ if rec_LF
     tic
 
     % define where the LF data is
-    LF_file = [imec_dir{rec_probe*2} '\continuous.dat'];
+    LF_file = [imec_dir{rec_probe*2} filesep 'continuous.dat'];
     t_ind_1 = strfind(imec_dir{rec_probe*2}, filesep);
     LF_proc = imec_dir{rec_probe*2}(t_ind_1(end)+1:end);
 
@@ -420,7 +420,7 @@ if rec_AP
     tic
 
     % define where the LF data is
-    AP_file = [imec_dir{rec_probe*2-1} '\continuous.dat'];
+    AP_file = [imec_dir{rec_probe*2-1} filesep 'continuous.dat'];
     t_ind_1 = strfind(imec_dir{rec_probe*2-1}, filesep);
     AP_proc = imec_dir{rec_probe*2-1}(t_ind_1(end)+1:end);
 
