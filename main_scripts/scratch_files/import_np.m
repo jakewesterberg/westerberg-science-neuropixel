@@ -9,6 +9,11 @@ function [EVT, AD_mat, LF_mat, AP_mat] = import_np()
 %% DEFINE BASIC INFO
 tic
 
+dataset_ID = '1OxvMiiMJWtC19z6dH_8n56K5eAMy67Y9L3Fpjr0VZV4';
+t_tab_1 = GetGoogleSpreadsheet(dataset_ID);
+dataset_sheet = cell2table(t_tab_1(2:end,:));
+dataset_sheet.Properties.VariableNames = t_tab_1(1,:);
+
 % where is the np data located?
 np_dir = '/Users/jakew/Data/NP_test/';
 
