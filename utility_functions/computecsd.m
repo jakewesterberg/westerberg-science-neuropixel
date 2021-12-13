@@ -1,7 +1,7 @@
 function data_out = computecsd(data_in, varargin)
 
 cndt            = 0.0004;
-spc             = .02; % in mm
+spc             = .1; % in mm
 
 varStrInd = find(cellfun(@ischar,varargin));
 for iv = 1:length(varStrInd)
