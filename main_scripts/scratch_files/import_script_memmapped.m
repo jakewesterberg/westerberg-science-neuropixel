@@ -16,10 +16,10 @@ disp('STEP 1 COMPLETE: workspace prepared.');
 tic
 
 % where is the np data located?
-np_dir = '/Users/jakew/Data/NP_test/';
+np_dir = '\\10.0.0.247\ephys\neuropixel_data\B52\211109_B\';
 
 % specify... 1) the exact dir
-rec_dir = []; % leave blank
+rec_dir = '\\10.0.0.247\ephys\neuropixel_data\B52\211109_B\ROM_B52_2021-11-09_13-43-06_2'; % leave blank
 
 % specify task
 rec_task = 'ROM'; %'EVP' 'ROM', 'DOT';
@@ -254,7 +254,7 @@ switch rec_task
         if strcmp(evt_form, 'ML')
             try
                 grating_path = find_file(rec_dir, '\.g', false);
-                if numel(grating_path) > 1; error('MORE THAN ONE GRATING RECORD!'); end
+                if numel(grating_path) > 1; warning('MORE THAN ONE GRATING RECORD!'); end
                 grating_path = grating_path{1};
             catch
                 disp('PLEASE SELECT THE APPROPRIATE _di file.')
